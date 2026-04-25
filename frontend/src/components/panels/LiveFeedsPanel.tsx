@@ -1,18 +1,22 @@
 "use client"
 import { useSentinel } from "@/store/sentinel"
+import CameraFOVView from "@/components/twin/CameraFOVView"
+import type { Camera } from "@/lib/types"
 
 export default function LiveFeedsPanel() {
   const { cameras, selectedCameraId, selectCamera } = useSentinel()
 
   return (
     <section className="p-4 space-y-2">
-      <h2 className="text-dim text-xs tracking-widest uppercase">Live Feeds</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-dim text-xs tracking-widest uppercase">Live Feeds</h2>
+        <span className="text-dim text-[10px]">click to inspect</span>
+      </div>
       <div className="grid grid-cols-2 gap-1.5">
         {cameras.map((cam) => (
           <FeedTile
             key={cam.id}
-            camId={cam.id}
-            status={cam.status}
+            cam={cam}
             selected={cam.id === selectedCameraId}
             onClick={() => selectCamera(cam.id === selectedCameraId ? null : cam.id)}
           />
@@ -22,38 +26,25 @@ export default function LiveFeedsPanel() {
   )
 }
 
-function FeedTile({
-  camId, status, selected, onClick,
-}: {
-  camId: string; status: string; selected: boolean; onClick: () => void
-}) {
-  const isObstructed = camId === "CAM-03"  // hardcoded demo obstruction
+function FeedTile({ cam, selected, onClick }: { cam: Camera; selected: boolean; onClick: () => void }) {
+  const isObstructed = cam.id === "CAM-03"
 
   return (
     <button
       onClick={onClick}
       className={`relative aspect-video rounded overflow-hidden border text-left transition-all
-        ${selected ? "border-cyan/60" : "border-border hover:border-muted"}
-        ${status === "warning" ? "border-amber/40" : ""}`}
+        ${selected ? "border-cyan/60 ring-1 ring-cyan/30" : "border-border hover:border-muted"}
+        ${cam.status === "warning" ? "border-amber/40" : ""}`}
     >
-      {/* Placeholder "video" */}
-      <div className="absolute inset-0 bg-gradient-to-br from-muted/40 to-bg flex flex-col justify-between p-1">
-        <div className="flex items-center gap-1">
-          <span className={`w-1 h-1 rounded-full ${status === "active" ? "bg-green" : status === "warning" ? "bg-amber" : "bg-dim"}`} />
-          <span className="text-[9px] text-dim">{camId}</span>
-          <span className="text-[9px] text-dim ml-auto">REC</span>
+      {/* Simulated camera feed */}
+      <CameraFOVView camera={cam} width={132} height={74} />
+
+      {/* Obstruction badge on top */}
+      {isObstructed && (
+        <div className="absolute bottom-1 left-1 right-1 border border-red/60 rounded text-[8px] text-red px-1 py-0.5 text-center bg-bg/60">
+          OBSTRUCTION
         </div>
-
-        {isObstructed && (
-          <div className="border border-red/60 rounded text-[9px] text-red px-1 py-0.5 text-center">
-            OBSTRUCTION
-          </div>
-        )}
-
-        <span className="text-[8px] text-dim self-end">
-          {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </span>
-      </div>
+      )}
     </button>
   )
 }

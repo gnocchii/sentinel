@@ -3,7 +3,7 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    anthropic_api_key: str
+    anthropic_api_key: str = ""
     k2_model: str = "claude-opus-4-7"
 
     backend_host: str = "0.0.0.0"

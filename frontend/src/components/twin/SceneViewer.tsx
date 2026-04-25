@@ -1,15 +1,16 @@
 "use client"
-import { useState } from "react"
 import { useSentinel } from "@/store/sentinel"
 import type { TwinTab } from "@/lib/types"
 import DigitalTwin from "./DigitalTwin"
 import PointCloudView from "./PointCloudView"
 import CoverageMap from "./CoverageMap"
 import ThreatPath from "./ThreatPath"
+import CameraFeedsGrid from "./CameraFeedsGrid"
 import BudgetSlider from "@/components/controls/BudgetSlider"
 import TimeScrubber from "@/components/controls/TimeScrubber"
 
 const TABS: { id: TwinTab; label: string }[] = [
+  { id: "camera-feeds",  label: "Camera Feeds" },
   { id: "digital-twin",  label: "Digital Twin" },
   { id: "point-cloud",   label: "Point Cloud" },
   { id: "coverage-map",  label: "Coverage Map" },
@@ -21,17 +22,17 @@ export default function SceneViewer() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* 3D Viewport */}
-      <div className="flex-1 relative bg-bg">
+      {/* Viewport */}
+      <div className="flex-1 relative bg-bg overflow-hidden">
+        {activeTab === "camera-feeds"  && <CameraFeedsGrid />}
         {activeTab === "digital-twin"  && <DigitalTwin />}
         {activeTab === "point-cloud"   && <PointCloudView />}
         {activeTab === "coverage-map"  && <CoverageMap />}
         {activeTab === "threat-path"   && <ThreatPath />}
       </div>
 
-      {/* Bottom controls bar */}
+      {/* Bottom controls */}
       <div className="border-t border-border bg-surface px-4 py-2 space-y-2 shrink-0">
-        {/* Tab switcher */}
         <div className="flex items-center gap-1">
           {TABS.map((t) => (
             <button
@@ -47,8 +48,6 @@ export default function SceneViewer() {
             </button>
           ))}
         </div>
-
-        {/* Sliders */}
         <div className="flex gap-6 items-center">
           <BudgetSlider />
           {activeTab === "digital-twin" && <TimeScrubber />}
