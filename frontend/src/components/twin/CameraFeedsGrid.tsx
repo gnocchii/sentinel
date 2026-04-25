@@ -96,7 +96,7 @@ function FeaturedFeed({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef    = useRef<number>(0)
-  const raw       = ready ? getViewConfig(camera.id) : null
+  const raw       = ready ? getViewConfig(camera) : null
   const config    = raw ? applyNightVision(raw, hour) : null
 
   const draw = useCallback(() => {
@@ -165,7 +165,7 @@ function MiniFeed({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef    = useRef<number>(0)
-  const rawMini   = ready ? (getViewConfig(camera.id) ?? getViewConfig("CAM-01")) : null
+  const rawMini   = ready ? getViewConfig(camera) : null
   const config    = rawMini ? applyNightVision(rawMini, hour) : null
 
   const draw = useCallback(() => {
