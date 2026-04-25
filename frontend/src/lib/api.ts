@@ -1,4 +1,12 @@
-import type { Scene, PointCloudData, CameraLighting, ThreatPath, Camera } from "./types"
+import type {
+  Scene,
+  PointCloudData,
+  CameraLighting,
+  ThreatPath,
+  Camera,
+  ScanUploadResponse,
+  ScanStatus,
+} from "./types"
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
@@ -25,6 +33,32 @@ export const fetchScene = (sceneId: string) =>
 
 export const fetchPointCloud = (sceneId: string) =>
   get<PointCloudData>(`/scene/${sceneId}/pointcloud`)
+
+export const fetchLatestScanPointCloud = () =>
+  get<PointCloudData>("/scans/latest/pointcloud")
+
+export async function uploadScanPly(file: File): Promise<ScanUploadResponse> {
+  const form = new FormData()
+  form.append("file", file)
+
+  const res = await fetch(`${BASE}/scans/upload`, {
+    method: "POST",
+    body: form,
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`POST /scans/upload → ${res.status} ${text}`)
+  }
+
+  return res.json()
+}
+
+export const fetchScanStatus = (scanId: string) =>
+  get<ScanStatus>(`/scans/${scanId}/status`)
+
+export const fetchScanPointCloud = (scanId: string) =>
+  get<PointCloudData>(`/scans/${scanId}/pointcloud`)
 
 // ─── Cameras ─────────────────────────────────────────────────────
 

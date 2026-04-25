@@ -110,6 +110,22 @@ export interface PointCloudData {
   points: [number, number, number, number, number, number][]  // [x, y, z, r, g, b]
 }
 
+export interface ScanUploadResponse {
+  scan_id: string
+  status: "processing" | "done" | "failed"
+  filename: string
+  size_bytes: number
+}
+
+export interface ScanStatus {
+  scan_id: string
+  status: "processing" | "done" | "failed"
+  filename: string
+  size_bytes: number
+  pointcloud_path?: string
+  error?: string
+}
+
 // ─── Lighting ────────────────────────────────────────────────────
 
 export type LightQuality = "good" | "warning" | "critical" | "dark"

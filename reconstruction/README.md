@@ -34,8 +34,12 @@ point cloud from room geometry — enough to run the full demo without video.
 
 When reconstruction is ready, POST the scene JSON to:
 ```
-POST /scene/upload
-Content-Type: application/json
-{ "scene": <scene_json> }
+POST /scans/upload
+Content-Type: multipart/form-data
+file=<pointcloud.ply>
 ```
-Backend will hot-reload the scene and all subsequent API calls will use it.
+Then fetch processed point cloud via:
+```
+GET /scans/{scan_id}/pointcloud
+GET /scans/latest/pointcloud
+```

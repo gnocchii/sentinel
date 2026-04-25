@@ -2,6 +2,7 @@
 import CoveragePanel from "@/components/panels/CoveragePanel"
 import CameraListPanel from "@/components/panels/CameraListPanel"
 import LightingPanel from "@/components/panels/LightingPanel"
+import ScanUploadPanel from "@/components/panels/ScanUploadPanel"
 
 export default function LeftRail() {
   return (
@@ -11,6 +12,8 @@ export default function LeftRail() {
       <CameraListPanel />
       <Divider />
       <LightingPanel />
+      <Divider />
+      <ScanUploadPanel />
     </aside>
   )
 }

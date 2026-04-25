@@ -1,0 +1,72 @@
+{
+  "4949165bcd144061a735e3264329206e": {
+    "scan_id": "4949165bcd144061a735e3264329206e",
+    "status": "done",
+    "filename": "test_scan.ply",
+    "size_bytes": 220,
+    "pointcloud_path": "/app/app/data/uploads/processed/4949165bcd144061a735e3264329206e.json"
+  },
+  "4c6767d4a6924a25a72c79c7026cd98a": {
+    "scan_id": "4c6767d4a6924a25a72c79c7026cd98a",
+    "status": "done",
+    "filename": "test_scan.ply",
+    "size_bytes": 220,
+    "pointcloud_path": "/app/app/data/uploads/processed/4c6767d4a6924a25a72c79c7026cd98a.json"
+  },
+  "83a90abdbfc34035ad7e5c3cdea9810c": {
+    "scan_id": "83a90abdbfc34035ad7e5c3cdea9810c",
+    "status": "done",
+    "filename": "Untitled_Scan_10_12_38.ply",
+    "size_bytes": 24947733,
+    "pointcloud_path": "/app/app/data/uploads/processed/83a90abdbfc34035ad7e5c3cdea9810c.json"
+  },
+  "44c6df28483e408e928c81c30464d92a": {
+    "scan_id": "44c6df28483e408e928c81c30464d92a",
+    "status": "done",
+    "filename": "Untitled_Scan_10_37_20.ply",
+    "size_bytes": 16319944,
+    "pointcloud_path": "/app/app/data/uploads/processed/44c6df28483e408e928c81c30464d92a.json"
+  },
+  "fd89f86318684b199a5c7f82a2be3703": {
+    "scan_id": "fd89f86318684b199a5c7f82a2be3703",
+    "status": "done",
+    "filename": "Untitled_Scan_10_12_38.ply",
+    "size_bytes": 24947733,
+    "pointcloud_path": "/app/app/data/uploads/processed/fd89f86318684b199a5c7f82a2be3703.json"
+  },
+  "1f1d3f5d4e4940d28cd00f25d47a6dcd": {
+    "scan_id": "1f1d3f5d4e4940d28cd00f25d47a6dcd",
+    "status": "done",
+    "filename": "Untitled_Scan_10_12_38.ply",
+    "size_bytes": 24947733,
+    "pointcloud_path": "/app/app/data/uploads/processed/1f1d3f5d4e4940d28cd00f25d47a6dcd.json"
+  },
+  "8b0ed2023b7e4ac2aaf195bfbe42bab3": {
+    "scan_id": "8b0ed2023b7e4ac2aaf195bfbe42bab3",
+    "status": "done",
+    "filename": "test_upload.ply",
+    "size_bytes": 220,
+    "pointcloud_path": "/app/app/data/uploads/processed/8b0ed2023b7e4ac2aaf195bfbe42bab3.json"
+  },
+  "daa4bdc55e644680a9f6d2b570954c27": {
+    "scan_id": "daa4bdc55e644680a9f6d2b570954c27",
+    "status": "done",
+    "filename": "Untitled_Scan_10_37_20.ply",
+    "size_bytes": 16319944,
+    "pointcloud_path": "/app/app/data/uploads/processed/daa4bdc55e644680a9f6d2b570954c27.json"
+  },
+  "fe343c9def864a6f8a6d56248b03fc43": {
+    "scan_id": "fe343c9def864a6f8a6d56248b03fc43",
+    "status": "done",
+    "filename": "Untitled_Scan_10_12_38.ply",
+    "size_bytes": 24947733,
+    "pointcloud_path": "/app/app/data/uploads/processed/fe343c9def864a6f8a6d56248b03fc43.json"
+  },
+  "8e04b4859ccb4a0aa45680fe8c3b51f3": {
+    "scan_id": "8e04b4859ccb4a0aa45680fe8c3b51f3",
+    "status": "done",
+    "filename": "Untitled_Scan_11_21_44.ply",
+    "size_bytes": 25139943,
+    "pointcloud_path": "/app/app/data/uploads/processed/8e04b4859ccb4a0aa45680fe8c3b51f3.json"
+  }
+}
