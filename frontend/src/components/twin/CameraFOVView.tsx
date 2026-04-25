@@ -35,7 +35,7 @@ export default function CameraFOVView({ camera, width = 480, height = 270, class
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoError, setVideoError]   = useState(false)
 
-  const rawConfig = getViewConfig(camera.id)
+  const rawConfig = getViewConfig(camera)
   const config = rawConfig ? applyNightVision(rawConfig, simulationHour) : null
 
   // Draw one frame: crop + HUD overlay

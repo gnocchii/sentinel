@@ -41,6 +41,8 @@ interface SentinelState {
   setActiveThreatEntry: (id: string | null) => void
 
   // ─── K2 panel ──────────────────────────────────────────────────
+  k2Thinking: string
+  appendK2Thinking: (t: string) => void
   k2Text: string
   appendK2Text: (t: string) => void
   clearK2Text: () => void
@@ -79,9 +81,11 @@ export const useSentinel = create<SentinelState>((set) => ({
   activeThreatEntry: null,
   setActiveThreatEntry: (activeThreatEntry) => set({ activeThreatEntry }),
 
+  k2Thinking: "",
+  appendK2Thinking: (t) => set((s) => ({ k2Thinking: s.k2Thinking + t })),
   k2Text: "",
   appendK2Text: (t) => set((s) => ({ k2Text: s.k2Text + t })),
-  clearK2Text: () => set({ k2Text: "" }),
+  clearK2Text: () => set({ k2Thinking: "", k2Text: "" }),
   k2Streaming: false,
   setK2Streaming: (k2Streaming) => set({ k2Streaming }),
 }))

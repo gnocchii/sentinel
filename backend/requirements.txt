@@ -8,3 +8,5 @@ scipy>=1.13.0
 python-dotenv>=1.0.0
 httpx>=0.27.0
 websockets>=12.0
+open3d>=0.18.0
+Pillow>=10.0.0
