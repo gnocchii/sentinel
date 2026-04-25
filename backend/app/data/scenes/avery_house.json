@@ -1,0 +1,155 @@
+{
+  "id": "avery_house",
+  "name": "Avery House — Demo Scene",
+  "floor_area_m2": 96,
+  "bounds": { "min": [0, 0, 0], "max": [12, 8, 3] },
+
+  "rooms": [
+    { "id": "living_room",  "label": "Living Room",  "priority": "medium", "bounds": { "min": [0, 0, 0], "max": [6, 8, 3] } },
+    { "id": "corridor",     "label": "Corridor",     "priority": "high",   "bounds": { "min": [6, 2, 0], "max": [8, 6, 3] } },
+    { "id": "office",       "label": "Office",       "priority": "high",   "bounds": { "min": [8, 4, 0], "max": [12, 8, 3] } },
+    { "id": "server_room",  "label": "Server Room",  "priority": "critical","bounds": { "min": [8, 0, 0], "max": [12, 4, 3] } }
+  ],
+
+  "walls": [
+    { "id": "w_south",      "from": [0,0,0],  "to": [12,0,0],  "height": 3 },
+    { "id": "w_north",      "from": [0,8,0],  "to": [12,8,0],  "height": 3 },
+    { "id": "w_west",       "from": [0,0,0],  "to": [0,8,0],   "height": 3 },
+    { "id": "w_east",       "from": [12,0,0], "to": [12,8,0],  "height": 3 },
+    { "id": "w_div1_s",     "from": [6,0,0],  "to": [6,2,0],   "height": 3 },
+    { "id": "w_div1_n",     "from": [6,6,0],  "to": [6,8,0],   "height": 3 },
+    { "id": "w_div2_s",     "from": [8,0,0],  "to": [8,2,0],   "height": 3 },
+    { "id": "w_div2_n",     "from": [8,6,0],  "to": [8,8,0],   "height": 3 },
+    { "id": "w_server_div", "from": [8,4,0],  "to": [12,4,0],  "height": 3 }
+  ],
+
+  "entry_points": [
+    { "id": "door_main",   "label": "Main Entrance",    "type": "door",   "position": [0, 4, 0],  "normal": [-1, 0, 0], "width": 1.0, "threat_weight": 1.0 },
+    { "id": "door_back",   "label": "Back Door",        "type": "door",   "position": [12, 4, 0], "normal": [1, 0, 0],  "width": 1.0, "threat_weight": 0.85 },
+    { "id": "win_sw",      "label": "SW Window",        "type": "window", "position": [0, 2, 1.2],"normal": [-1, 0, 0], "width": 1.2, "threat_weight": 0.6 },
+    { "id": "win_nw",      "label": "NW Window",        "type": "window", "position": [0, 6, 1.2],"normal": [-1, 0, 0], "width": 1.2, "threat_weight": 0.6 },
+    { "id": "win_se",      "label": "SE Window (South)","type": "window", "position": [3, 0, 1.2],"normal": [0, -1, 0], "width": 1.2, "threat_weight": 0.5 },
+    { "id": "win_ne",      "label": "NE Window",        "type": "window", "position": [10, 8, 1.2],"normal": [0, 1, 0],"width": 1.2, "threat_weight": 0.4 }
+  ],
+
+  "obstructions": [
+    { "id": "shelf1",     "label": "Bookshelf",      "bounds": { "min": [1, 0, 0],  "max": [1.4, 2, 1.8] } },
+    { "id": "shelf2",     "label": "Filing Cabinet", "bounds": { "min": [9, 8, 0],  "max": [11, 7.6, 1.2] } },
+    { "id": "desk1",      "label": "Desk (office)",  "bounds": { "min": [9, 5, 0],  "max": [11.5, 6, 0.8] } },
+    { "id": "server_rack","label": "Server Rack",    "bounds": { "min": [9, 0.5, 0],"max": [11.5, 3.5, 2.2] } }
+  ],
+
+  "windows_solar": [
+    { "entry_point_id": "win_sw", "azimuth_deg": 270, "sill_height": 0.9, "head_height": 2.1 },
+    { "entry_point_id": "win_nw", "azimuth_deg": 270, "sill_height": 0.9, "head_height": 2.1 },
+    { "entry_point_id": "win_se", "azimuth_deg": 180, "sill_height": 0.9, "head_height": 2.1 },
+    { "entry_point_id": "win_ne", "azimuth_deg":   0, "sill_height": 0.9, "head_height": 2.1 }
+  ],
+
+  "cameras": [
+    {
+      "id": "CAM-01", "label": "CAM-01",
+      "type": "Dome 4K",
+      "position": [0.4, 0.4, 2.7],
+      "target":   [6, 6, 0],
+      "fov_h": 110, "fov_v": 70,
+      "cost_usd": 349,
+      "ir_capable": false,
+      "hdr_capable": true,
+      "status": "active",
+      "locked": false
+    },
+    {
+      "id": "CAM-02", "label": "CAM-02",
+      "type": "Dome 4K",
+      "position": [11.6, 0.4, 2.7],
+      "target":   [6, 6, 0],
+      "fov_h": 110, "fov_v": 70,
+      "cost_usd": 349,
+      "ir_capable": false,
+      "hdr_capable": true,
+      "status": "active",
+      "locked": true
+    },
+    {
+      "id": "CAM-03", "label": "CAM-03",
+      "type": "Bullet 2K",
+      "position": [11.6, 7.6, 2.7],
+      "target":   [6, 2, 0],
+      "fov_h": 80, "fov_v": 45,
+      "cost_usd": 199,
+      "ir_capable": false,
+      "hdr_capable": false,
+      "status": "active",
+      "locked": false
+    },
+    {
+      "id": "CAM-04", "label": "CAM-04",
+      "type": "Dome WDR",
+      "position": [7, 4, 2.7],
+      "target":   [4, 4, 0],
+      "fov_h": 120, "fov_v": 90,
+      "cost_usd": 279,
+      "ir_capable": false,
+      "hdr_capable": true,
+      "status": "warning",
+      "locked": false
+    },
+    {
+      "id": "CAM-05", "label": "CAM-05",
+      "type": "Dome IR",
+      "position": [0.5, 3.5, 2.5],
+      "target":   [3, 4, 0],
+      "fov_h": 100, "fov_v": 65,
+      "cost_usd": 229,
+      "ir_capable": true,
+      "hdr_capable": false,
+      "status": "active",
+      "locked": true
+    },
+    {
+      "id": "CAM-06", "label": "CAM-06",
+      "type": "Dome IR",
+      "position": [11.5, 4.5, 2.5],
+      "target":   [9, 4, 0],
+      "fov_h": 100, "fov_v": 65,
+      "cost_usd": 229,
+      "ir_capable": true,
+      "hdr_capable": false,
+      "status": "active",
+      "locked": true
+    },
+    {
+      "id": "CAM-07", "label": "CAM-07",
+      "type": "PTZ",
+      "position": [6, 8, 2.8],
+      "target":   [6, 0, 0],
+      "fov_h": 65, "fov_v": 40,
+      "cost_usd": 599,
+      "ir_capable": true,
+      "hdr_capable": true,
+      "status": "active",
+      "locked": false
+    }
+  ],
+
+  "analysis": {
+    "coverage_pct": 94.2,
+    "entry_points_covered": 5,
+    "entry_points_total": 6,
+    "blind_spots": [
+      { "id": "bs1", "position": [4.5, 7.5, 0], "area_m2": 1.8, "reason": "NW bookshelf shadow", "severity": "low" }
+    ],
+    "overlap_zones": 3,
+    "total_cost_usd": 2233,
+    "lighting_risks": [
+      {
+        "camera_id": "CAM-04",
+        "window_id": "win_sw",
+        "risk_window": { "start_hour": 14.0, "end_hour": 16.5 },
+        "type": "glare",
+        "mitigation": "Enable HDR mode 14:00–16:30 or install IR-capable replacement"
+      }
+    ]
+  }
+}
