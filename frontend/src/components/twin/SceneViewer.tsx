@@ -6,7 +6,6 @@ import PointCloudView from "./PointCloudView"
 import CoverageMap from "./CoverageMap"
 import ThreatPath from "./ThreatPath"
 import CameraFeedsGrid from "./CameraFeedsGrid"
-import MeshOptimizer from "./MeshOptimizer"
 import ImportanceMap from "./ImportanceMap"
 import BudgetSlider from "@/components/controls/BudgetSlider"
 import TimeScrubber from "@/components/controls/TimeScrubber"
@@ -17,12 +16,20 @@ const TABS: { id: TwinTab; label: string }[] = [
   { id: "point-cloud",    label: "Point Cloud" },
   { id: "coverage-map",   label: "Coverage Map" },
   { id: "threat-path",    label: "Threat Path" },
-  { id: "mesh-optimizer", label: "Mesh Optimizer" },
   { id: "importance-map", label: "Importance Map" },
 ]
 
 export default function SceneViewer() {
-  const { activeTab, setActiveTab } = useSentinel()
+  const { activeTab, setActiveTab, sceneId } = useSentinel()
+
+  if (!sceneId) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-4 bg-bg">
+        <span className="text-cyan font-semibold tracking-widest text-lg">SENTINEL</span>
+        <p className="text-dim text-sm">Upload a USDZ scan to begin analysis.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -33,7 +40,6 @@ export default function SceneViewer() {
         {activeTab === "point-cloud"    && <PointCloudView />}
         {activeTab === "coverage-map"   && <CoverageMap />}
         {activeTab === "threat-path"    && <ThreatPath />}
-        {activeTab === "mesh-optimizer" && <MeshOptimizer />}
         {activeTab === "importance-map" && <ImportanceMap />}
       </div>
 

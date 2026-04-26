@@ -16,3 +16,4 @@ trimesh[easy]>=4.3.0
 matplotlib>=3.8.0
 usd-core>=24.11
 huggingface-hub>=0.23.0
+fpdf2>=2.7.0

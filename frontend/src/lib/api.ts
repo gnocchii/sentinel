@@ -146,6 +146,28 @@ export const fetchLightingAtHour = (sceneId: string, hour: number) =>
     `/lighting/${sceneId}/hour/${hour}`
   )
 
+// ─── PDF report export ───────────────────────────────────────────
+
+export async function exportReport(
+  sceneId: string,
+  cameras: Camera[],
+  analysis: Record<string, unknown>,
+): Promise<void> {
+  const res = await fetch(`${BASE}/report/${sceneId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cameras, analysis }),
+  })
+  if (!res.ok) throw new Error(`POST /report/${sceneId} → ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `sentinel_report_${sceneId}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ─── K2 SSE streams ──────────────────────────────────────────────
 
 export function streamPlacement(

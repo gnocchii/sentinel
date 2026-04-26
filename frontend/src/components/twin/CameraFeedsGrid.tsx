@@ -416,7 +416,7 @@ function FbxFeedsLayout({
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 p-4 min-w-0 flex flex-col">
           <div className="flex-1 min-h-0 relative">
-            <FbxPOV camera={selected} url={url} captureRef={captureRef} />
+            <FbxPOV key={selected.id} camera={selected} url={url} captureRef={captureRef} />
             <PovHud camera={selected} hour={hour} size="large" />
             {refinedUrl && (
               <img
@@ -538,7 +538,7 @@ function StaticFeedsLayout({
         {/* Featured */}
         <div className="flex-1 p-4 min-w-0 flex flex-col">
           <div className="flex-1 min-h-0 relative">
-            <CameraPOVCanvas camera={selected} hour={hour} size="large" captureRef={captureRef} />
+            <CameraPOVCanvas key={selected.id} camera={selected} hour={hour} size="large" captureRef={captureRef} />
             {refinedUrl && (
               <img
                 src={refinedUrl}

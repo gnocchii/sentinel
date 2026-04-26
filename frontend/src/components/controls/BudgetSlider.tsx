@@ -20,6 +20,7 @@ export default function BudgetSlider() {
     sceneId, setCameras, setCoveragePct, setSceneAnalysis,
     importanceScore, setImportanceScore,
     optimizing, setOptimizing,
+    selectCamera,
   } = useSentinel()
 
   const handleSlide = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -31,6 +32,7 @@ export default function BudgetSlider() {
     setOptimizing(true)
     try {
       const result = await optimizeImportance(sceneId, budget, 12)
+      selectCamera(null)          // clear stale selection before updating list
       setCameras(result.cameras)
       setCoveragePct(result.score * 100)
       setImportanceScore(result.score)
@@ -47,7 +49,7 @@ export default function BudgetSlider() {
     } finally {
       setOptimizing(false)
     }
-  }, [sceneId, budget, optimizing, setCameras, setCoveragePct, setImportanceScore, setSceneAnalysis, setOptimizing])
+  }, [sceneId, budget, optimizing, selectCamera, setCameras, setCoveragePct, setImportanceScore, setSceneAnalysis, setOptimizing])
 
   const pct = budgetToLog(budget)
 

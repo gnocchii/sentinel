@@ -121,7 +121,7 @@ export const useSentinel = create<SentinelState>((set) => ({
 
   importance: null,
   setImportance: (importance) => set({ importance }),
-  sceneId: "avery_house",
+  sceneId: "",
   setSceneId: (sceneId) => set({ sceneId }),
 
   importanceScore: 0,

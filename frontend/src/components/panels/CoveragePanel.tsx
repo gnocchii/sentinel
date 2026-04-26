@@ -5,7 +5,6 @@ export default function CoveragePanel() {
   const { coveragePct, scene } = useSentinel()
   const analysis = scene?.analysis
   const blindSpots = analysis?.blind_spots ?? []
-  const overlapZones = analysis?.overlap_zones ?? 0
   const epCovered = analysis?.entry_points_covered ?? 0
   const epTotal = analysis?.entry_points_total ?? 0
 
@@ -31,22 +30,7 @@ export default function CoveragePanel() {
       <div className="grid grid-cols-2 gap-2 text-xs">
         <Metric label="Entry Points" value={`${epCovered} / ${epTotal}`} color={epCovered === epTotal ? "green" : "amber"} />
         <Metric label="Blind Spots" value={blindSpots.length.toString()} color={blindSpots.length === 0 ? "green" : "amber"} />
-        <Metric label="Overlap Zones" value={overlapZones.toString()} color="dim" />
-        <Metric label="Floor Area" value={`${scene?.floor_area_m2 ?? 0} m²`} color="dim" />
       </div>
-
-      {/* Blind spot list */}
-      {blindSpots.length > 0 && (
-        <div className="space-y-1">
-          {blindSpots.map((bs) => (
-            <div key={bs.id} className="flex items-center gap-2 text-xs bg-muted/50 rounded px-2 py-1">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${bs.severity === "high" ? "bg-red" : bs.severity === "medium" ? "bg-amber" : "bg-dim"}`} />
-              <span className="text-text truncate">{bs.reason}</span>
-              <span className="text-dim ml-auto shrink-0">{bs.area_m2}m²</span>
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   )
 }

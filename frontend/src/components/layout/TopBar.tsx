@@ -1,14 +1,29 @@
 "use client"
 import { useRef, useState } from "react"
 import { useSentinel } from "@/store/sentinel"
-import { uploadUsdz, fetchScene, fetchImportance, recomputeImportance, streamImportanceReasoning } from "@/lib/api"
+import { uploadUsdz, fetchScene, fetchImportance } from "@/lib/api"
 
 export default function TopBar() {
-  const { scene, cameras, k2Streaming, setScene, setImportance, setSceneId, sceneId, appendK2Text, clearK2Text, setK2Streaming, setFeedsFbxUrl, feedsFbxUrl } = useSentinel()
+  const { scene, cameras, k2Streaming, setScene, setImportance, setSceneId, sceneId, setFeedsFbxUrl, feedsFbxUrl, budget, coveragePct } = useSentinel()
   const fileRef = useRef<HTMLInputElement>(null)
   const fbxRef  = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
-  const [reasoning, setReasoning] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const handleExportPdf = async () => {
+    if (!sceneId) return
+    setExporting(true)
+    try {
+      const { exportReport } = await import("@/lib/api")
+      const analysis = { ...(scene?.analysis as Record<string, unknown> ?? {}), coverage_pct: coveragePct }
+      await exportReport(sceneId, cameras, analysis)
+    } catch (e) {
+      console.error(e)
+      alert(`PDF export failed: ${e}`)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const alerts = scene?.analysis.lighting_risks.length ?? 0
   const onlineCameras = cameras.filter((c) => c.status !== "offline").length
@@ -37,25 +52,6 @@ export default function TopBar() {
     const url = URL.createObjectURL(file)
     setFeedsFbxUrl(url)
     console.log("[FBX] blob URL:", url)
-  }
-
-  const handleReason = () => {
-    if (!sceneId) return
-    clearK2Text()
-    setK2Streaming(true)
-    setReasoning(true)
-    const stop = streamImportanceReasoning(
-      sceneId,
-      appendK2Text,
-      () => {
-        setK2Streaming(false)
-        setReasoning(false)
-        // After streaming, fetch the parsed importance grid
-        recomputeImportance(sceneId).then(setImportance).catch(() => {})
-      },
-    )
-    // safety: stop after 2 minutes
-    setTimeout(() => stop(), 120_000)
   }
 
   return (
@@ -102,11 +98,11 @@ export default function TopBar() {
           {feedsFbxUrl ? "FBX Loaded ✓" : "Upload FBX"}
         </button>
         <button
-          onClick={handleReason}
-          disabled={reasoning || !sceneId}
+          onClick={handleExportPdf}
+          disabled={exporting || !sceneId}
           className="px-2.5 py-1 rounded border border-cyan/30 text-cyan hover:bg-cyan/10 transition-colors disabled:opacity-50"
         >
-          {reasoning ? "K2 Reasoning…" : "Stream K2 Importance"}
+          {exporting ? "Exporting…" : "Export PDF"}
         </button>
 
         <Pill color="green">{onlineCameras} Cameras Online</Pill>

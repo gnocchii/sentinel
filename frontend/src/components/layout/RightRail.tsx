@@ -1,7 +1,6 @@
 "use client"
 import LiveFeedsPanel from "@/components/panels/LiveFeedsPanel"
 import AlertsPanel from "@/components/panels/AlertsPanel"
-import K2Panel from "@/components/panels/K2Panel"
 import CameraPOVPanel from "@/components/panels/CameraPOVPanel"
 import { useSentinel } from "@/store/sentinel"
 
@@ -20,13 +19,8 @@ export default function RightRail() {
           <LiveFeedsPanel />
           <div className="border-t border-border mx-3" />
           <AlertsPanel />
-          <div className="border-t border-border mx-3" />
         </>
       )}
-      <div className="mt-auto">
-        <div className="border-t border-border mx-3" />
-        <K2Panel />
-      </div>
     </aside>
   )
 }

@@ -3,14 +3,8 @@ import { useEffect } from "react"
 import { useSentinel } from "@/store/sentinel"
 import { fetchScene, fetchPointCloud, fetchLighting, fetchLatestScanPointCloud, fetchImportance } from "@/lib/api"
 
-const DEFAULT_SCENE = process.env.NEXT_PUBLIC_DEFAULT_SCENE ?? "polycam_scan"
-
 export function useScene() {
-  const { sceneId, setSceneId, setScene, setPointCloud, setLightingData, setImportance } = useSentinel()
-
-  useEffect(() => {
-    if (!sceneId) setSceneId(DEFAULT_SCENE)
-  }, [sceneId, setSceneId])
+  const { sceneId, setScene, setPointCloud, setLightingData, setImportance } = useSentinel()
 
   useEffect(() => {
     if (!sceneId) return
