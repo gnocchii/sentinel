@@ -1,7 +1,37 @@
 import { create } from "zustand"
 import type { Scene, Camera, TwinTab, ThreatPath, CameraLighting, PointCloudData, ImportancePayload, SceneAnalysis } from "@/lib/types"
 
+export type ActivitySeverity = "info" | "success" | "warning" | "critical"
+export interface Activity {
+  id: string
+  severity: ActivitySeverity
+  title: string
+  body?: string
+  ts: number
+}
+
+export type LoadKey =
+  | "upload-usdz"
+  | "upload-fbx"
+  | "upload-ply"
+  | "scene-fetch"
+  | "importance"
+  | "optimize"
+  | "k2-stream"
+  | "export-pdf"
+
 interface SentinelState {
+  // ─── Activity feed ────────────────────────────────────────────
+  activities: Activity[]
+  pushActivity: (a: Omit<Activity, "id" | "ts"> & Partial<Pick<Activity, "id" | "ts">>) => void
+  clearActivities: () => void
+
+  // ─── Global loading map ───────────────────────────────────────
+  loading: Partial<Record<LoadKey, { label: string; progress?: number }>>
+  startLoading: (key: LoadKey, label: string) => void
+  setLoadingProgress: (key: LoadKey, progress: number) => void
+  stopLoading: (key: LoadKey) => void
+
   // ─── Scene ─────────────────────────────────────────────────────
   scene: Scene | null
   setScene: (s: Scene) => void
@@ -67,6 +97,36 @@ interface SentinelState {
 }
 
 export const useSentinel = create<SentinelState>((set) => ({
+  activities: [],
+  pushActivity: (a) =>
+    set((s) => {
+      const entry: Activity = {
+        id: a.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        ts: a.ts ?? Date.now(),
+        severity: a.severity,
+        title: a.title,
+        body: a.body,
+      }
+      return { activities: [entry, ...s.activities].slice(0, 60) }
+    }),
+  clearActivities: () => set({ activities: [] }),
+
+  loading: {},
+  startLoading: (key, label) =>
+    set((s) => ({ loading: { ...s.loading, [key]: { label, progress: undefined } } })),
+  setLoadingProgress: (key, progress) =>
+    set((s) =>
+      s.loading[key]
+        ? { loading: { ...s.loading, [key]: { ...s.loading[key]!, progress } } }
+        : {}
+    ),
+  stopLoading: (key) =>
+    set((s) => {
+      const next = { ...s.loading }
+      delete next[key]
+      return { loading: next }
+    }),
+
   scene: null,
   setScene: (scene) => set({ scene, cameras: scene.cameras, coveragePct: scene.analysis.coverage_pct }),
   setSceneAnalysis: (partial) =>
@@ -121,6 +181,8 @@ export const useSentinel = create<SentinelState>((set) => ({
 
   importance: null,
   setImportance: (importance) => set({ importance }),
+  // Initial sceneId — commented out to start with no scene loaded.
+  // sceneId: "avery_house",
   sceneId: "",
   setSceneId: (sceneId) => set({ sceneId }),
 

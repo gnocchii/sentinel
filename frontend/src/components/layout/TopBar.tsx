@@ -1,7 +1,7 @@
 "use client"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useSentinel } from "@/store/sentinel"
-import { uploadUsdz, fetchScene, fetchImportance, recomputeImportance, streamImportanceReasoning, exportReport, optimizeImportance } from "@/lib/api"
+import { uploadUsdz, fetchScene, fetchImportance, recomputeImportance, streamImportanceReasoning, optimizeImportance } from "@/lib/api"
 
 export default function TopBar() {
   const {
@@ -17,7 +17,6 @@ export default function TopBar() {
   const fbxRef  = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [reasoning, setReasoning] = useState(false)
-  const [exporting, setExporting] = useState(false)
 
   const alerts = scene?.analysis.lighting_risks.length ?? 0
 
@@ -117,22 +116,6 @@ export default function TopBar() {
       },
     )
     setTimeout(() => stop(), 120_000)
-  }
-
-  const handleExportPdf = async () => {
-    if (!sceneId) return
-    setExporting(true)
-    startLoading("export-pdf", "Generating report PDF")
-    try {
-      await exportReport(sceneId, budget)
-      pushActivity({ severity: "success", title: "PDF report exported" })
-    } catch (e) {
-      console.error(e)
-      pushActivity({ severity: "critical", title: "PDF export failed", body: String(e) })
-    } finally {
-      setExporting(false)
-      stopLoading("export-pdf")
-    }
   }
 
   return (
