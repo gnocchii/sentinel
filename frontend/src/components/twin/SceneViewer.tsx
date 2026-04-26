@@ -7,6 +7,7 @@ import CoverageMap from "./CoverageMap"
 import ThreatPath from "./ThreatPath"
 import CameraFeedsGrid from "./CameraFeedsGrid"
 import MeshOptimizer from "./MeshOptimizer"
+import ImportanceMap from "./ImportanceMap"
 import BudgetSlider from "@/components/controls/BudgetSlider"
 import TimeScrubber from "@/components/controls/TimeScrubber"
 
@@ -17,6 +18,7 @@ const TABS: { id: TwinTab; label: string }[] = [
   { id: "coverage-map",   label: "Coverage Map" },
   { id: "threat-path",    label: "Threat Path" },
   { id: "mesh-optimizer", label: "Mesh Optimizer" },
+  { id: "importance-map", label: "Importance Map" },
 ]
 
 export default function SceneViewer() {
@@ -32,6 +34,7 @@ export default function SceneViewer() {
         {activeTab === "coverage-map"   && <CoverageMap />}
         {activeTab === "threat-path"    && <ThreatPath />}
         {activeTab === "mesh-optimizer" && <MeshOptimizer />}
+        {activeTab === "importance-map" && <ImportanceMap />}
       </div>
 
       {/* Bottom controls */}

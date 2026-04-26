@@ -1,28 +1,32 @@
 "use client"
 /**
  * CameraFeedsGrid — full-viewport grid of simulated camera views.
- * This is the "see through the eyes of your future system" tab.
+ * "See through the eyes of your future system" tab.
  *
- * One shared hidden <video> element plays walkthrough.mp4.
- * Each canvas draws its own crop + effects from that single source,
- * avoiding the cost of N simultaneous video decoders.
+ * Two render modes:
+ *   - Avery House scene: video-crop simulated views (one shared <video>, per-camera canvas).
+ *   - Any other scene:    static security-cam HUDs (no video — synthetic per-camera previews).
  */
 
 import { useEffect, useRef, useCallback, useState } from "react"
 import { useSentinel } from "@/store/sentinel"
 import { getViewConfig, applyNightVision } from "@/lib/cameraVideoMap"
+import CameraFOVView from "./CameraFOVView"
 import type { Camera } from "@/lib/types"
 
 const VIDEO_SRC = "/walkthrough.mp4"
 
 export default function CameraFeedsGrid() {
-  const { cameras, selectedCameraId, selectCamera, simulationHour } = useSentinel()
+  const { cameras, selectedCameraId, selectCamera, simulationHour, sceneId } = useSentinel()
   const videoRef   = useRef<HTMLVideoElement>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
+  const sceneSupportsVideo = sceneId === "avery_house"
 
-  // Single shared video — all canvases read from this
+  // Only load the walkthrough video for the Avery House demo. For any other
+  // scene the video is irrelevant (and walkthrough.mp4 may not exist).
   useEffect(() => {
+    if (!sceneSupportsVideo) return
     const v = videoRef.current
     if (!v) return
     v.src = VIDEO_SRC
@@ -32,9 +36,30 @@ export default function CameraFeedsGrid() {
     v.oncanplay  = () => setReady(true)
     v.onerror    = () => setError(true)
     v.load()
-  }, [])
+  }, [sceneSupportsVideo])
 
   const selectedCam = cameras.find((c) => c.id === selectedCameraId) ?? cameras[0]
+  const hasMappedCam = !!selectedCam && !!getViewConfig(selectedCam.id)
+
+  if (cameras.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-bg text-center p-8">
+        <div className="space-y-2 max-w-md">
+          <p className="text-text text-sm">No cameras placed yet</p>
+          <p className="text-dim text-xs">Click <span className="text-cyan">Optimize Cameras</span> below to run the K2-importance pipeline. Then come back here for the camera POV view.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!sceneSupportsVideo || !hasMappedCam) {
+    return <StaticFeedsLayout
+      cameras={cameras}
+      selectedCameraId={selectedCameraId}
+      onSelect={selectCamera}
+      hour={simulationHour}
+    />
+  }
 
   if (error) {
     return (
@@ -294,6 +319,63 @@ function LoadingOverlay({ cameraId, mini = false }: { cameraId: string; mini?: b
       <span className={`text-dim font-mono ${mini ? "text-[8px]" : "text-xs"}`}>
         {mini ? cameraId : `${cameraId} — loading…`}
       </span>
+    </div>
+  )
+}
+
+// ─── Static feeds layout (used when no walkthrough video is appropriate) ──
+
+function StaticFeedsLayout({
+  cameras, selectedCameraId, onSelect, hour,
+}: {
+  cameras: Camera[]
+  selectedCameraId: string | null
+  onSelect: (id: string | null) => void
+  hour: number
+}) {
+  const selected = cameras.find((c) => c.id === selectedCameraId) ?? cameras[0]
+  const others = cameras.filter((c) => c.id !== selected.id)
+
+  return (
+    <div className="w-full h-full flex flex-col bg-bg overflow-hidden">
+      <div className="px-4 py-2 border-b border-border">
+        <p className="text-dim text-[10px]">
+          Synthetic camera previews · no walkthrough video for this scan ·
+          <span className="text-text"> Use Digital Twin tab to verify positions in 3D</span>
+        </p>
+      </div>
+      <div className="flex flex-1 min-h-0">
+        {/* Featured */}
+        <div className="flex-1 p-4 min-w-0">
+          <CameraFOVView
+            camera={selected}
+            width={800}
+            height={500}
+            className="w-full h-full"
+          />
+          <div className="mt-2 flex items-center gap-2 text-xs">
+            <span className="text-cyan font-semibold">{selected.id}</span>
+            <span className="text-dim">{selected.type} · {selected.fov_h}° FOV · ${selected.cost_usd}</span>
+            <span className="text-dim">·</span>
+            <span className="text-dim font-mono">
+              ({selected.position[0].toFixed(1)}, {selected.position[1].toFixed(1)}, {selected.position[2].toFixed(1)})
+            </span>
+          </div>
+        </div>
+
+        {/* Side grid */}
+        <div className="w-56 flex flex-col gap-1 p-2 overflow-y-auto border-l border-border">
+          {others.map((cam) => (
+            <button
+              key={cam.id}
+              onClick={() => onSelect(cam.id)}
+              className="block w-full hover:brightness-125 transition-all"
+            >
+              <CameraFOVView camera={cam} width={208} height={117} />
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

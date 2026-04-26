@@ -6,6 +6,8 @@ import type {
   Camera,
   ScanUploadResponse,
   ScanStatus,
+  ImportancePayload,
+  Coverage3DPayload,
 } from "./types"
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
@@ -70,6 +72,50 @@ export const optimizeCameras = (sceneId: string, budgetUsd: number, lockedIds: s
 
 export const fetchThreatPaths = (sceneId: string, targetRoom = "server_room") =>
   get<ThreatPath[]>(`/cameras/${sceneId}/threat-paths?target_room=${targetRoom}`)
+
+// ─── Importance map ──────────────────────────────────────────────
+
+export const fetchImportance = (sceneId: string) =>
+  get<ImportancePayload>(`/importance/${sceneId}`)
+
+export const recomputeImportance = (sceneId: string) =>
+  post<ImportancePayload>(`/importance/${sceneId}/recompute`, {})
+
+export function streamImportanceReasoning(
+  sceneId: string,
+  onToken: (t: string) => void,
+  onDone: () => void,
+) {
+  const es = new EventSource(`${BASE}/importance/${sceneId}/stream`)
+  es.onmessage = (e) => {
+    if (e.data === "[DONE]") { es.close(); onDone(); return }
+    onToken(e.data + "\n")
+  }
+  es.onerror = () => { es.close(); onDone() }
+  return () => es.close()
+}
+
+export const optimizeImportance = (sceneId: string, budgetUsd: number, maxCameras = 12, refineIters = 0) =>
+  post<{
+    cameras: Camera[]
+    score: number
+    total_cost_usd: number
+    iterations: { camera_id: string; type: string; position: [number, number, number]; marginal_gain: number; score: number; cost_usd: number }[]
+    scores: { rooms: Record<string, { score: number; inferred_type: string; reason: string }>, doors: Record<string, { score: number; reason: string }> }
+  }>("/cameras/optimize-importance", { scene_id: sceneId, budget_usd: budgetUsd, max_cameras: maxCameras, refine_iters: refineIters })
+
+export async function uploadUsdz(file: File, sceneId = "polycam_scan") {
+  const fd = new FormData()
+  fd.append("file", file)
+  const res = await fetch(`${BASE}/scene/upload-usdz?scene_id=${encodeURIComponent(sceneId)}`, { method: "POST", body: fd })
+  if (!res.ok) throw new Error(`upload failed: ${res.status}`)
+  return res.json() as Promise<{ scene_id: string; rooms: number; walls: number; doors: number; obstructions: number }>
+}
+
+// ─── 3D coverage ─────────────────────────────────────────────────
+
+export const fetchCoverage3D = (sceneId: string, cameras: Camera[], resolution = 0.25) =>
+  post<Coverage3DPayload>("/cameras/coverage-3d", { scene_id: sceneId, cameras, resolution })
 
 // ─── Lighting ────────────────────────────────────────────────────
 

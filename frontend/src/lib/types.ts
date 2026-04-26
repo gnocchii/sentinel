@@ -155,6 +155,52 @@ export interface ThreatPath {
   breach_cameras: string[]
 }
 
+// ─── 3D coverage map ─────────────────────────────────────────────
+
+export interface CameraCoverage3D {
+  id: string
+  label: string
+  type: string
+  position: [number, number, number]
+  covered_cells: [number, number][]   // [col, row] grid indices
+  covered_count: number
+}
+
+export interface Coverage3DPayload {
+  bounds: { min: [number, number]; max: [number, number] }
+  resolution: number
+  shape: [number, number]
+  total_cells: number
+  covered_cells: number
+  coverage_pct: number
+  cameras: CameraCoverage3D[]
+}
+
+// ─── Importance map ──────────────────────────────────────────────
+
+export interface ImportanceRoomScore {
+  id: string
+  inferred_type: string
+  score: number
+  reason: string
+}
+
+export interface ImportanceDoorScore {
+  id: string
+  score: number
+  reason: string
+}
+
+export interface ImportancePayload {
+  grid: number[][]                // 2D array of (H × W) values 0..1
+  bounds: { min: [number, number]; max: [number, number] }
+  resolution: number
+  shape: [number, number]
+  rooms: ImportanceRoomScore[]
+  doors: ImportanceDoorScore[]
+  meta: { source: string; reason?: string }
+}
+
 // ─── UI state ────────────────────────────────────────────────────
 
-export type TwinTab = "digital-twin" | "point-cloud" | "coverage-map" | "threat-path" | "camera-feeds" | "mesh-optimizer"
+export type TwinTab = "digital-twin" | "point-cloud" | "coverage-map" | "threat-path" | "camera-feeds" | "mesh-optimizer" | "importance-map"

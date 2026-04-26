@@ -1,0 +1,91 @@
+newmtl Material_1
+Kd 0.95 0.90 0.85
+Pr 1.00
+newmtl Material_2
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_3
+Kd 0.61 0.58 0.52
+Pr 1.00
+newmtl Material_4
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_5
+Kd 0.93 0.87 0.80
+Pr 1.00
+newmtl Material_6
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_7
+Kd 1.00 1.00 0.95
+Pr 1.00
+newmtl Material_8
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_9
+Kd 0.61 0.58 0.52
+Pr 1.00
+newmtl Material_10
+Kd 0.61 0.58 0.52
+Pr 1.00
+newmtl Material_11
+Kd 0.80 0.71 0.52
+Pr 1.00
+newmtl Material_12
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_13
+Kd 1.00 1.00 0.95
+Pr 1.00
+newmtl Material_14
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_15
+Kd 0.93 0.87 0.80
+Pr 1.00
+newmtl Material_16
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_17
+Kd 0.93 0.87 0.80
+Pr 1.00
+newmtl Material_18
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_19
+Kd 0.93 0.87 0.80
+Pr 1.00
+newmtl Material_20
+Kd 0.89 0.85 0.78
+Pr 1.00
+newmtl Material_21
+Kd 0.93 0.87 0.80
+Pr 1.00
+newmtl Material_22
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_23
+Kd 0.93 0.87 0.80
+Pr 1.00
+newmtl Material_24
+Kd 0.61 0.58 0.52
+Pr 1.00
+newmtl Material_25
+Kd 0.80 0.71 0.52
+Pr 1.00
+newmtl Material_26
+Kd 1.00 1.00 0.98
+Pr 1.00
+newmtl Material_27
+Kd 0.61 0.58 0.52
+Pr 1.00
+newmtl Material_28
+Kd 0.90 0.90 0.90
+d 0.40
+Pr 1.00
+newmtl Material_29
+Kd 0.86 0.80 0.73
+Pr 1.00
+newmtl Material_30
+map_Kd textures/floor_Other_color.jpg
+Pr 1.00

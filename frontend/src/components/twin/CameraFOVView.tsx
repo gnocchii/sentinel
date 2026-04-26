@@ -34,9 +34,22 @@ export default function CameraFOVView({ camera, width = 480, height = 270, class
 
   const [videoLoaded, setVideoLoaded] = useState(false)
   const [videoError, setVideoError]   = useState(false)
+  const { sceneId } = useSentinel()
 
   const rawConfig = getViewConfig(camera)
   const config = rawConfig ? applyNightVision(rawConfig, simulationHour) : null
+
+  // Walkthrough video is tuned for Avery House only — short-circuit for any other scene
+  const sceneSupportsVideo = sceneId === "avery_house"
+
+  // Failsafe: if the video doesn't reach canplay within 4s, treat as failed
+  useEffect(() => {
+    if (!sceneSupportsVideo) return
+    const timer = setTimeout(() => {
+      if (!videoLoaded) setVideoError(true)
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [sceneSupportsVideo, videoLoaded])
 
   // Draw one frame: crop + HUD overlay
   const drawFrame = useCallback(() => {
@@ -131,30 +144,25 @@ export default function CameraFOVView({ camera, width = 480, height = 270, class
       ].join(" ")
     : ""
 
-  if (!config) {
-    return (
-      <div
-        className={`flex items-center justify-center bg-muted/30 rounded text-dim text-xs ${className}`}
-        style={{ width, height }}
-      >
-        No view config for {camera.id}
-      </div>
-    )
+  if (!config || !sceneSupportsVideo) {
+    return <StaticCameraPreview camera={camera} width={width} height={height} className={className} hour={simulationHour} />
   }
 
   return (
     <div className={`relative rounded overflow-hidden ${className}`} style={{ width, height }}>
-      {/* Hidden video source */}
-      <video
-        ref={videoRef}
-        src={VIDEO_SRC}
-        muted
-        playsInline
-        preload="auto"
-        className="hidden"
-        onCanPlay={() => setVideoLoaded(true)}
-        onError={() => setVideoError(true)}
-      />
+      {/* Hidden video source — only attached for the Avery House demo */}
+      {sceneSupportsVideo && (
+        <video
+          ref={videoRef}
+          src={VIDEO_SRC}
+          muted
+          playsInline
+          preload="auto"
+          className="hidden"
+          onCanPlay={() => setVideoLoaded(true)}
+          onError={() => setVideoError(true)}
+        />
+      )}
 
       {/* Rendered output */}
       <canvas
@@ -164,10 +172,54 @@ export default function CameraFOVView({ camera, width = 480, height = 270, class
         style={{ filter: cssFilter, display: "block" }}
       />
 
-      {/* Fallback: shown when video hasn't loaded or errored */}
-      {(!videoLoaded || videoError) && (
-        <NoVideoFallback camera={camera} width={width} height={height} error={videoError} />
+      {/* Fallback: video error OR 4s timeout */}
+      {videoError && (
+        <StaticCameraPreview camera={camera} width={width} height={height} hour={simulationHour} />
       )}
+      {!videoLoaded && !videoError && sceneSupportsVideo && (
+        <div className="absolute inset-0 flex items-center justify-center bg-bg/80">
+          <span className="text-dim font-mono text-[10px]">{camera.id} — loading…</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StaticCameraPreview({
+  camera, width, height, className = "", hour,
+}: {
+  camera: Camera; width: number; height: number; className?: string; hour: number
+}) {
+  const isNight = hour >= 21 || hour < 5
+  const tint = isNight ? "from-[#001020] to-[#000810]" : "from-[#142035] to-[#0a131e]"
+  const accent = camera.status === "warning" ? "border-amber/50" : camera.status === "offline" ? "border-red/50" : "border-green/30"
+  return (
+    <div
+      className={`relative overflow-hidden rounded border ${accent} ${className}`}
+      style={{ width, height }}
+    >
+      <div className={`absolute inset-0 bg-gradient-to-br ${tint}`} />
+      {/* Scan lines */}
+      <div className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{ backgroundImage: "repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(0,255,136,0.07) 2px,rgba(0,255,136,0.07) 3px)" }}
+      />
+      {/* Crosshair */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="w-6 h-px bg-green/30" /><div className="absolute w-px h-4 bg-green/30" />
+      </div>
+      {/* HUD */}
+      <div className="absolute inset-0 p-1.5 flex flex-col justify-between text-green font-mono">
+        <div className="flex justify-between text-[9px]">
+          <span className="font-bold">{camera.id}</span>
+          <span className="opacity-70">{String(hour).padStart(2,"0")}:00</span>
+        </div>
+        <div className="flex justify-between items-end text-[8px]">
+          <span className="opacity-70">{camera.type.toUpperCase()}</span>
+          <span className="flex items-center gap-1">
+            <span className="w-1 h-1 rounded-full bg-red-500 animate-pulse" /> REC
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
