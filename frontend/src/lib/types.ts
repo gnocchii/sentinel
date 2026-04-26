@@ -157,4 +157,4 @@ export interface ThreatPath {
 
 // ─── UI state ────────────────────────────────────────────────────
 
-export type TwinTab = "digital-twin" | "point-cloud" | "coverage-map" | "threat-path" | "camera-feeds"
+export type TwinTab = "digital-twin" | "point-cloud" | "coverage-map" | "threat-path" | "camera-feeds" | "mesh-optimizer"

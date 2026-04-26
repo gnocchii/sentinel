@@ -6,15 +6,17 @@ import PointCloudView from "./PointCloudView"
 import CoverageMap from "./CoverageMap"
 import ThreatPath from "./ThreatPath"
 import CameraFeedsGrid from "./CameraFeedsGrid"
+import MeshOptimizer from "./MeshOptimizer"
 import BudgetSlider from "@/components/controls/BudgetSlider"
 import TimeScrubber from "@/components/controls/TimeScrubber"
 
 const TABS: { id: TwinTab; label: string }[] = [
-  { id: "camera-feeds",  label: "Camera Feeds" },
-  { id: "digital-twin",  label: "Digital Twin" },
-  { id: "point-cloud",   label: "Point Cloud" },
-  { id: "coverage-map",  label: "Coverage Map" },
-  { id: "threat-path",   label: "Threat Path" },
+  { id: "camera-feeds",   label: "Camera Feeds" },
+  { id: "digital-twin",   label: "Digital Twin" },
+  { id: "point-cloud",    label: "Point Cloud" },
+  { id: "coverage-map",   label: "Coverage Map" },
+  { id: "threat-path",    label: "Threat Path" },
+  { id: "mesh-optimizer", label: "Mesh Optimizer" },
 ]
 
 export default function SceneViewer() {
@@ -24,11 +26,12 @@ export default function SceneViewer() {
     <div className="flex flex-col h-full">
       {/* Viewport */}
       <div className="flex-1 relative bg-bg overflow-hidden">
-        {activeTab === "camera-feeds"  && <CameraFeedsGrid />}
-        {activeTab === "digital-twin"  && <DigitalTwin />}
-        {activeTab === "point-cloud"   && <PointCloudView />}
-        {activeTab === "coverage-map"  && <CoverageMap />}
-        {activeTab === "threat-path"   && <ThreatPath />}
+        {activeTab === "camera-feeds"   && <CameraFeedsGrid />}
+        {activeTab === "digital-twin"   && <DigitalTwin />}
+        {activeTab === "point-cloud"    && <PointCloudView />}
+        {activeTab === "coverage-map"   && <CoverageMap />}
+        {activeTab === "threat-path"    && <ThreatPath />}
+        {activeTab === "mesh-optimizer" && <MeshOptimizer />}
       </div>
 
       {/* Bottom controls */}
