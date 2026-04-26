@@ -15,3 +15,4 @@ plyfile>=1.1.0
 trimesh[easy]>=4.3.0
 matplotlib>=3.8.0
 usd-core>=24.11
+huggingface-hub>=0.23.0

@@ -52,19 +52,32 @@ function POVCameraSetup({ cam }: { cam: Camera }) {
   return null
 }
 
+type CaptureRef = { current: (() => Promise<Blob | null>) | null }
+
+function FrameCapture({ captureRef }: { captureRef: CaptureRef }) {
+  const { gl } = useThree()
+  useEffect(() => {
+    captureRef.current = () =>
+      new Promise<Blob | null>((resolve) => gl.domElement.toBlob(resolve, "image/png"))
+    return () => { captureRef.current = null }
+  }, [gl, captureRef])
+  return null
+}
+
 interface Props {
   camera: Camera
   url: string
   scale?: number
+  captureRef?: CaptureRef
 }
 
-export default function FbxPOV({ camera, url, scale = 1 }: Props) {
+export default function FbxPOV({ camera, url, scale = 1, captureRef }: Props) {
   const startPos = adjustedPosition(camera)
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
       <Canvas
         camera={{ position: startPos, fov: 70, near: 0.05, far: 200 }}
-        gl={{ antialias: true, powerPreference: "default" }}
+        gl={{ antialias: true, powerPreference: "default", preserveDrawingBuffer: true }}
       >
         <color attach="background" args={["#05070a"]} />
         <ambientLight intensity={1.0} color="#f0f4f8" />
@@ -72,6 +85,7 @@ export default function FbxPOV({ camera, url, scale = 1 }: Props) {
         <directionalLight position={[10, 10, 15]} intensity={0.8} color="#fff5e0" />
         <directionalLight position={[-10, -10, 12]} intensity={0.4} color="#e8eef8" />
         <POVCameraSetup cam={camera} />
+        {captureRef && <FrameCapture captureRef={captureRef} />}
         <Suspense fallback={null}>
           <FbxModel url={url} scale={scale} />
         </Suspense>

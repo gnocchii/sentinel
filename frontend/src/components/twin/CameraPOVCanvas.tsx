@@ -3,7 +3,7 @@
  * CameraPOVCanvas — clean realistic POV render of the 3D scene.
  */
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Canvas, useThree } from "@react-three/fiber"
 import * as THREE from "three"
 import { SceneShell } from "./SceneShell"
@@ -42,13 +42,26 @@ function POVCameraSetup({ cam }: { cam: Camera }) {
   return null
 }
 
+type CaptureRef = { current: (() => Promise<Blob | null>) | null }
+
+function FrameCapture({ captureRef }: { captureRef: CaptureRef }) {
+  const { gl } = useThree()
+  useEffect(() => {
+    captureRef.current = () =>
+      new Promise<Blob | null>((resolve) => gl.domElement.toBlob(resolve, "image/png"))
+    return () => { captureRef.current = null }
+  }, [gl, captureRef])
+  return null
+}
+
 interface Props {
   camera: Camera
   hour: number
   size?: "large" | "mini"
+  captureRef?: CaptureRef
 }
 
-export default function CameraPOVCanvas({ camera, hour, size = "large" }: Props) {
+export default function CameraPOVCanvas({ camera, hour, size = "large", captureRef }: Props) {
   const { scene } = useSentinel()
   if (!scene) return <div className="w-full h-full bg-black" />
 
@@ -58,7 +71,7 @@ export default function CameraPOVCanvas({ camera, hour, size = "large" }: Props)
     <div className="relative w-full h-full bg-black overflow-hidden">
       <Canvas
         camera={{ position: startPos, fov: 70, near: 0.05, far: 60 }}
-        gl={{ antialias: true, powerPreference: "default" }}
+        gl={{ antialias: true, powerPreference: "default", preserveDrawingBuffer: true }}
       >
         <color attach="background" args={["#2a3038"]} />
 
@@ -72,6 +85,7 @@ export default function CameraPOVCanvas({ camera, hour, size = "large" }: Props)
         <directionalLight position={[-10, -10, 12]} intensity={0.35} color="#e8eef8" />
 
         <POVCameraSetup cam={camera} />
+        {captureRef && <FrameCapture captureRef={captureRef} />}
         <SceneShell
           scene={scene}
           showCameras={false}

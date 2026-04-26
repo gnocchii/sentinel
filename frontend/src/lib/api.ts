@@ -118,6 +118,19 @@ export async function uploadUsdz(file: File, sceneId = "polycam_scan") {
   return res.json() as Promise<{ scene_id: string; rooms: number; walls: number; doors: number; obstructions: number }>
 }
 
+// ─── View refiner ────────────────────────────────────────────────
+
+export async function refineView(blob: Blob, cameraId: string, hour: number): Promise<string> {
+  const form = new FormData()
+  form.append("image", blob, "frame.png")
+  form.append("camera_id", cameraId)
+  form.append("hour", String(hour))
+  const res = await fetch(`${BASE}/cameras/refine-view`, { method: "POST", body: form })
+  if (!res.ok) throw new Error(`POST /cameras/refine-view → ${res.status}`)
+  const refined = await res.blob()
+  return URL.createObjectURL(refined)
+}
+
 // ─── 3D coverage ─────────────────────────────────────────────────
 
 export const fetchCoverage3D = (sceneId: string, cameras: Camera[], resolution = 0.25) =>

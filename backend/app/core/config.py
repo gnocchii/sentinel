@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     scene_latitude: float = 34.0195
     scene_longitude: float = -118.1212
 
+    hf_token: str = ""
+
     class Config:
         env_file = _ENV_FILE
         extra = "ignore"

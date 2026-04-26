@@ -14,7 +14,10 @@ import { getViewConfig, applyNightVision } from "@/lib/cameraVideoMap"
 import CameraFOVView from "./CameraFOVView"
 import CameraPOVCanvas from "./CameraPOVCanvas"
 import FbxPOV from "./FbxPOV"
+import { refineView } from "@/lib/api"
 import type { Camera } from "@/lib/types"
+
+type CaptureRef = { current: (() => Promise<Blob | null>) | null }
 
 const VIDEO_SRC = "/walkthrough.mp4"
 
@@ -381,6 +384,27 @@ function FbxFeedsLayout({
   const selected = cameras.find((c) => c.id === selectedCameraId) ?? cameras[0]
   const others = cameras.filter((c) => c.id !== selected.id)
 
+  const captureRef = useRef<(() => Promise<Blob | null>) | null>(null) as CaptureRef
+  const [refinedUrl, setRefinedUrl] = useState<string | null>(null)
+  const [refining, setRefining] = useState(false)
+
+  useEffect(() => { setRefinedUrl(null) }, [selected.id])
+
+  async function handleRefine() {
+    if (!captureRef.current || refining) return
+    setRefining(true)
+    try {
+      const blob = await captureRef.current()
+      if (!blob) return
+      const url = await refineView(blob, selected.id, hour)
+      setRefinedUrl(url)
+    } catch (e) {
+      console.error("Refine failed:", e)
+    } finally {
+      setRefining(false)
+    }
+  }
+
   return (
     <div className="w-full h-full flex flex-col bg-bg overflow-hidden">
       <div className="px-4 py-2 border-b border-border">
@@ -392,8 +416,15 @@ function FbxFeedsLayout({
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 p-4 min-w-0 flex flex-col">
           <div className="flex-1 min-h-0 relative">
-            <FbxPOV camera={selected} url={url} />
+            <FbxPOV camera={selected} url={url} captureRef={captureRef} />
             <PovHud camera={selected} hour={hour} size="large" />
+            {refinedUrl && (
+              <img
+                src={refinedUrl}
+                alt="refined view"
+                className="absolute inset-0 w-full h-full object-cover z-10"
+              />
+            )}
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs shrink-0">
             <span className="text-cyan font-semibold">{selected.id}</span>
@@ -402,6 +433,23 @@ function FbxFeedsLayout({
             <span className="text-dim font-mono">
               ({selected.position[0].toFixed(1)}, {selected.position[1].toFixed(1)}, {selected.position[2].toFixed(1)})
             </span>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={handleRefine}
+                disabled={refining}
+                className="px-2 py-0.5 rounded text-[10px] bg-cyan/10 hover:bg-cyan/20 text-cyan border border-cyan/30 disabled:opacity-40 transition-colors"
+              >
+                {refining ? "Refining…" : "Refine View"}
+              </button>
+              {refinedUrl && (
+                <button
+                  onClick={() => setRefinedUrl(null)}
+                  className="px-2 py-0.5 rounded text-[10px] bg-border hover:brightness-125 text-dim border border-border transition-colors"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -457,6 +505,27 @@ function StaticFeedsLayout({
   const selected = cameras.find((c) => c.id === selectedCameraId) ?? cameras[0]
   const others = cameras.filter((c) => c.id !== selected.id)
 
+  const captureRef = useRef<(() => Promise<Blob | null>) | null>(null) as CaptureRef
+  const [refinedUrl, setRefinedUrl] = useState<string | null>(null)
+  const [refining, setRefining] = useState(false)
+
+  useEffect(() => { setRefinedUrl(null) }, [selected.id])
+
+  async function handleRefine() {
+    if (!captureRef.current || refining) return
+    setRefining(true)
+    try {
+      const blob = await captureRef.current()
+      if (!blob) return
+      const url = await refineView(blob, selected.id, hour)
+      setRefinedUrl(url)
+    } catch (e) {
+      console.error("Refine failed:", e)
+    } finally {
+      setRefining(false)
+    }
+  }
+
   return (
     <div className="w-full h-full flex flex-col bg-bg overflow-hidden">
       <div className="px-4 py-2 border-b border-border">
@@ -469,7 +538,14 @@ function StaticFeedsLayout({
         {/* Featured */}
         <div className="flex-1 p-4 min-w-0 flex flex-col">
           <div className="flex-1 min-h-0 relative">
-            <CameraPOVCanvas camera={selected} hour={hour} size="large" />
+            <CameraPOVCanvas camera={selected} hour={hour} size="large" captureRef={captureRef} />
+            {refinedUrl && (
+              <img
+                src={refinedUrl}
+                alt="refined view"
+                className="absolute inset-0 w-full h-full object-cover z-10"
+              />
+            )}
           </div>
           <div className="mt-2 flex items-center gap-2 text-xs shrink-0">
             <span className="text-cyan font-semibold">{selected.id}</span>
@@ -478,6 +554,23 @@ function StaticFeedsLayout({
             <span className="text-dim font-mono">
               ({selected.position[0].toFixed(1)}, {selected.position[1].toFixed(1)}, {selected.position[2].toFixed(1)})
             </span>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={handleRefine}
+                disabled={refining}
+                className="px-2 py-0.5 rounded text-[10px] bg-cyan/10 hover:bg-cyan/20 text-cyan border border-cyan/30 disabled:opacity-40 transition-colors"
+              >
+                {refining ? "Refining…" : "Refine View"}
+              </button>
+              {refinedUrl && (
+                <button
+                  onClick={() => setRefinedUrl(null)}
+                  className="px-2 py-0.5 rounded text-[10px] bg-border hover:brightness-125 text-dim border border-border transition-colors"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

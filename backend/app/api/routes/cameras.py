@@ -1,4 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, File, Form, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from app.api.routes.scene import load_scene
 from app.services.placement import optimize_placement_for_budget
@@ -99,3 +100,25 @@ def get_threat_paths(scene_id: str, target_room: str = "server_room"):
     """Compute A* threat paths from all entry points to target room."""
     scene = load_scene(scene_id)
     return compute_threat_paths(scene, scene["cameras"], target_room)
+
+
+@router.post("/refine-view")
+async def refine_view(
+    image: UploadFile = File(...),
+    camera_id: str = Form("CAM-01"),
+    hour: float = Form(12.0),
+    strength: float = Form(0.80),
+):
+    """
+    Accept a PNG/JPG frame captured from the camera POV canvas,
+    run it through the HF img2img refiner, return a photorealistic CCTV still.
+    """
+    from app.services.view_refiner import refine_camera_view_bytes
+    image_bytes = await image.read()
+    try:
+        out_path = refine_camera_view_bytes(
+            image_bytes, camera_id=camera_id, hour=hour, strength=strength
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return FileResponse(str(out_path), media_type="image/png", filename=out_path.name)
