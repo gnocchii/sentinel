@@ -5,21 +5,27 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Sentinel design system — dark monospace dashboard
-        bg:       "#0a0c0f",
-        surface:  "#111418",
-        border:   "#1e2530",
-        muted:    "#2a3240",
-        text:     "#c8d4e0",
-        dim:      "#5a6a7a",
-        cyan:     "#00d4ff",
-        green:    "#00ff88",
-        amber:    "#ffaa00",
-        red:      "#ff4444",
-        purple:   "#8855ff",
+        // Catppuccin Mocha
+        bg:       "#11111b",  // crust
+        surface:  "#181825",  // mantle
+        border:   "#313244",  // surface0
+        muted:    "#45475a",  // surface1
+        text:     "#eff1f8",  // brighter text
+        dim:      "#bac2de",  // subtext1 (brighter than subtext0)
+        cyan:     "#89b4fa",  // blue
+        green:    "#a6e3a1",  // green
+        amber:    "#fab387",  // peach
+        red:      "#f38ba8",  // red
+        purple:   "#cba6f7",  // mauve
+        pink:     "#f5c2e7",  // pink
+        teal:     "#94e2d5",  // teal
+        lavender: "#b4befe",  // lavender
+        yellow:   "#f9e2af",  // yellow
       },
       fontFamily: {
-        mono: ["'JetBrains Mono'", "'Fira Code'", "ui-monospace", "monospace"],
+        sans:    ["'Plus Jakarta Sans'", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        mono:    ["'Geist Mono'", "ui-monospace", "monospace"],
+        display: ["'Instrument Serif'", "serif"],
       },
     },
   },

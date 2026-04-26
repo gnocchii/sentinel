@@ -4,47 +4,85 @@
  * Each cell is colored by its importance value (0=privacy, 1=critical chokepoint).
  * Walls overlay in dim color, doors as bright dots, room labels float above their centroid.
  */
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useSentinel } from "@/store/sentinel"
+import { fetchImportance } from "@/lib/api"
 
 export default function ImportanceMap() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { scene, importance } = useSentinel()
+  const scene = useSentinel((s) => s.scene)
+  const sceneId = useSentinel((s) => s.sceneId)
+  const importance = useSentinel((s) => s.importance)
+  const setImportance = useSentinel((s) => s.setImportance)
+  const pushActivity = useSentinel((s) => s.pushActivity)
+  const startLoading = useSentinel((s) => s.startLoading)
+  const stopLoading = useSentinel((s) => s.stopLoading)
+
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<boolean>(false)
+  const fetchedFor = useRef<string | null>(null)
+
+  // Auto-fetch importance once per scene if it's missing
+  useEffect(() => {
+    if (!sceneId || importance || fetchedFor.current === sceneId) return
+    fetchedFor.current = sceneId
+    setBusy(true)
+    setError(null)
+    startLoading("importance", "Loading importance map")
+    fetchImportance(sceneId)
+      .then((imp) => {
+        setImportance(imp)
+        if (!imp || !imp.grid || !imp.grid.length) {
+          setError("Importance payload was empty — try Recompute")
+        }
+      })
+      .catch((e) => {
+        console.error("[importance] fetch failed", e)
+        setError(`Fetch failed: ${e instanceof Error ? e.message : String(e)}`)
+        pushActivity({
+          severity: "warning",
+          title: "Importance map fetch failed",
+          body: e instanceof Error ? e.message : String(e),
+        })
+      })
+      .finally(() => {
+        setBusy(false)
+        stopLoading("importance")
+      })
+  }, [sceneId, importance, setImportance, pushActivity, startLoading, stopLoading])
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext("2d")!
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
     const W = canvas.width
     const H = canvas.height
-
+    ctx.clearRect(0, 0, W, H)
     ctx.fillStyle = "#0a0c0f"
     ctx.fillRect(0, 0, W, H)
 
-    if (!importance || !scene) {
-      ctx.fillStyle = "#5a6a7a"
-      ctx.font = "14px monospace"
-      ctx.fillText("Loading importance map…", 20, H / 2)
-      return
-    }
+    if (!importance || !scene) return
+    const grid = importance.grid
+    if (!grid || !grid.length || !grid[0]?.length) return
 
     const [bxMin, byMin] = importance.bounds.min
     const [bxMax, byMax] = importance.bounds.max
     const worldW = bxMax - bxMin
     const worldH = byMax - byMin
+    if (worldW <= 0 || worldH <= 0) return
+
     const scale = Math.min(W / worldW, H / worldH) * 0.9
     const offsetX = (W - worldW * scale) / 2
     const offsetY = (H - worldH * scale) / 2
     const toScreenX = (x: number) => offsetX + (x - bxMin) * scale
-    const toScreenY = (y: number) => offsetY + (byMax - y) * scale  // flip Y for top-down
+    const toScreenY = (y: number) => offsetY + (byMax - y) * scale
 
-    // ── Heatmap fill ──
-    const grid = importance.grid
     const [gridH, gridW] = importance.shape
     const cellPx = importance.resolution * scale
     for (let r = 0; r < gridH; r++) {
       for (let c = 0; c < gridW; c++) {
-        const v = grid[r][c]
+        const v = grid[r]?.[c] ?? 0
         if (v <= 0) continue
         const sx = offsetX + (c * importance.resolution) * scale
         const sy = offsetY + (worldH - (r + 1) * importance.resolution) * scale
@@ -53,7 +91,6 @@ export default function ImportanceMap() {
       }
     }
 
-    // ── Walls ──
     ctx.strokeStyle = "rgba(120, 140, 165, 0.85)"
     ctx.lineWidth = 1.5
     for (const wall of scene.walls) {
@@ -63,13 +100,12 @@ export default function ImportanceMap() {
       ctx.stroke()
     }
 
-    // ── Doors ──
     for (const ep of scene.entry_points) {
       const door = importance.doors.find((d) => d.id === ep.id)
       const score = door?.score ?? 0.9
       const sx = toScreenX(ep.position[0])
       const sy = toScreenY(ep.position[1])
-      ctx.fillStyle = `rgba(255, ${Math.round(255 * (1 - score))}, ${Math.round(120 * (1 - score))}, 0.95)`
+      ctx.fillStyle = `rgba(137, 180, 250, ${0.5 + score * 0.5})`
       ctx.beginPath()
       ctx.arc(sx, sy, 5, 0, Math.PI * 2)
       ctx.fill()
@@ -78,7 +114,6 @@ export default function ImportanceMap() {
       ctx.stroke()
     }
 
-    // ── Room labels ──
     ctx.font = "bold 11px 'JetBrains Mono', monospace"
     ctx.textAlign = "center"
     for (const room of importance.rooms) {
@@ -96,46 +131,61 @@ export default function ImportanceMap() {
       ctx.fillText(label, sx, sy + 3)
     }
 
-    // ── Legend ──
     drawLegend(ctx, W, H)
   }, [scene, importance])
 
+  const empty = !importance || !importance.grid?.length
+
   return (
-    <div className="w-full h-full flex flex-col bg-bg">
-      <div className="px-4 py-2 border-b border-border flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-text">K2 Importance Map</h3>
-          <p className="text-[10px] text-dim">
-            {importance
-              ? `${importance.rooms.length} rooms · ${importance.doors.length} doors · ${importance.meta?.source}`
-              : "—"}
+    <div className="w-full h-full flex flex-col bg-transparent">
+      <div className="px-4 py-2 border-b border-white/[0.06] flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-text tracking-tight">Importance Map</h3>
+          <p className="text-[10px] text-dim truncate">
+            {importance && !empty
+              ? `${importance.rooms.length} rooms · ${importance.doors.length} doors · source: ${importance.meta?.source}`
+              : sceneId
+                ? (busy ? "Loading…" : error ? "Error" : "No data")
+                : "Upload a scene to compute"}
           </p>
         </div>
         {importance?.meta?.source === "fallback" && (
-          <div className="text-[10px] text-amber-400">fallback scoring (K2 unreachable)</div>
+          <span className="text-[10px] text-amber shrink-0">fallback scoring</span>
         )}
       </div>
-      <div className="flex-1 flex items-center justify-center">
+
+      <div className="flex-1 flex items-center justify-center relative">
         <canvas
           ref={canvasRef}
           width={1000}
           height={700}
           className="max-w-full max-h-full"
         />
+        {empty && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="bg-bg/80 backdrop-blur-md border border-white/[0.06] rounded-lg px-4 py-3 text-center pointer-events-auto max-w-sm">
+              <p className="text-text text-sm font-medium mb-1">
+                {!sceneId ? "No scene loaded" : busy ? "Computing importance map…" : error ? "Importance map unavailable" : "No importance data"}
+              </p>
+              <p className="text-dim text-[11px]">
+                {error ?? (sceneId ? "Click Recompute to ask K2 for fresh scoring." : "Upload a USDZ to begin.")}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 function colorForScore(v: number): string {
-  // Cool blue (low) → cyan → green (mid) → yellow → red (high)
-  // RGB stops: 0→[20,30,80], 0.25→[30,140,200], 0.5→[80,220,140], 0.75→[240,220,80], 1.0→[240,80,80]
+  // All-blue ramp (low → high): deep navy → mid blue → bright cyan-blue
   const stops: [number, [number, number, number]][] = [
-    [0.0, [20, 30, 80]],
-    [0.25, [30, 140, 200]],
-    [0.5, [80, 220, 140]],
-    [0.75, [240, 220, 80]],
-    [1.0, [240, 80, 80]],
+    [0.0,  [16, 24, 56]],
+    [0.25, [40, 70, 140]],
+    [0.5,  [80, 130, 210]],
+    [0.75, [137, 180, 250]],
+    [1.0,  [200, 230, 255]],
   ]
   v = Math.max(0, Math.min(1, v))
   for (let i = 1; i < stops.length; i++) {
@@ -149,7 +199,7 @@ function colorForScore(v: number): string {
       return `rgba(${r},${g},${b},0.85)`
     }
   }
-  return "rgb(240,80,80)"
+  return "rgba(200,230,255,0.85)"
 }
 
 function drawLegend(ctx: CanvasRenderingContext2D, W: number, H: number) {

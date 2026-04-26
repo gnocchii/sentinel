@@ -1,70 +1,39 @@
 "use client"
+import { useEffect } from "react"
 import { useSentinel } from "@/store/sentinel"
-import type { TwinTab } from "@/lib/types"
-import DigitalTwin from "./DigitalTwin"
+import DigitalTwinCoverage from "./DigitalTwinCoverage"
 import PointCloudView from "./PointCloudView"
-import CoverageMap from "./CoverageMap"
 import ThreatPath from "./ThreatPath"
-import CameraFeedsGrid from "./CameraFeedsGrid"
 import ImportanceMap from "./ImportanceMap"
-import BudgetSlider from "@/components/controls/BudgetSlider"
-import TimeScrubber from "@/components/controls/TimeScrubber"
-
-const TABS: { id: TwinTab; label: string }[] = [
-  { id: "camera-feeds",   label: "Camera Feeds" },
-  { id: "digital-twin",   label: "Digital Twin" },
-  { id: "point-cloud",    label: "Point Cloud" },
-  { id: "coverage-map",   label: "Coverage Map" },
-  { id: "threat-path",    label: "Threat Path" },
-  { id: "importance-map", label: "Importance Map" },
-]
+import CameraDetailView from "./CameraDetailView"
 
 export default function SceneViewer() {
-  const { activeTab, setActiveTab, sceneId } = useSentinel()
+  const activeTab = useSentinel((s) => s.activeTab)
+  const selectedCameraId = useSentinel((s) => s.selectedCameraId)
+  const cameras = useSentinel((s) => s.cameras)
+  const selectCamera = useSentinel((s) => s.selectCamera)
 
-  if (!sceneId) {
-    return (
-      <div className="flex flex-col h-full items-center justify-center gap-4 bg-bg">
-        <span className="text-cyan font-semibold tracking-widest text-lg">SENTINEL</span>
-        <p className="text-dim text-sm">Upload a USDZ scan to begin analysis.</p>
-      </div>
-    )
-  }
+  // Auto-select first camera when Camera Feeds tab is active and nothing is
+  // selected yet, so the user lands on a populated POV + metadata view.
+  useEffect(() => {
+    if (activeTab === "camera-feeds" && !selectedCameraId && cameras.length > 0) {
+      selectCamera(cameras[0].id)
+    }
+  }, [activeTab, selectedCameraId, cameras, selectCamera])
+
+  if (selectedCameraId) return <div className="w-full h-full"><CameraDetailView /></div>
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Viewport */}
-      <div className="flex-1 relative bg-bg overflow-hidden">
-        {activeTab === "camera-feeds"   && <CameraFeedsGrid />}
-        {activeTab === "digital-twin"   && <DigitalTwin />}
-        {activeTab === "point-cloud"    && <PointCloudView />}
-        {activeTab === "coverage-map"   && <CoverageMap />}
-        {activeTab === "threat-path"    && <ThreatPath />}
-        {activeTab === "importance-map" && <ImportanceMap />}
-      </div>
-
-      {/* Bottom controls */}
-      <div className="border-t border-border bg-surface px-4 py-2 space-y-2 shrink-0">
-        <div className="flex items-center gap-1">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`px-3 py-1 rounded text-xs transition-colors
-                ${activeTab === t.id
-                  ? "bg-cyan/15 text-cyan border border-cyan/30"
-                  : "text-dim hover:text-text border border-transparent"
-                }`}
-            >
-              {t.label}
-            </button>
-          ))}
+    <div className="w-full h-full relative bg-transparent overflow-hidden">
+      {activeTab === "digital-twin"   && <DigitalTwinCoverage />}
+      {activeTab === "point-cloud"    && <PointCloudView />}
+      {activeTab === "threat-path"    && <ThreatPath />}
+      {activeTab === "importance-map" && <ImportanceMap />}
+      {activeTab === "camera-feeds"   && (
+        <div className="w-full h-full flex items-center justify-center">
+          <p className="text-dim text-sm">No cameras yet — run Refresh to populate.</p>
         </div>
-        <div className="flex gap-6 items-center">
-          <BudgetSlider />
-          {activeTab === "digital-twin" && <TimeScrubber />}
-        </div>
-      </div>
+      )}
     </div>
   )
 }

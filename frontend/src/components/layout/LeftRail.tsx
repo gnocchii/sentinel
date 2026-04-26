@@ -1,9 +1,10 @@
 "use client"
 import { useSentinel } from "@/store/sentinel"
 import CoveragePanel from "@/components/panels/CoveragePanel"
-import CameraListPanel from "@/components/panels/CameraListPanel"
-import LightingPanel from "@/components/panels/LightingPanel"
-import ScanUploadPanel from "@/components/panels/ScanUploadPanel"
+import AlertsPanel from "@/components/panels/AlertsPanel"
+import K2ReasoningPanel from "@/components/panels/K2ReasoningPanel"
+import BentoCard from "@/components/ui/BentoCard"
+import TerminalFrame from "@/components/ui/TerminalFrame"
 
 export default function LeftRail() {
   const { sceneId } = useSentinel()
@@ -13,18 +14,28 @@ export default function LeftRail() {
   }
 
   return (
-    <aside className="w-72 flex flex-col gap-0 border-r border-border bg-surface overflow-y-auto shrink-0">
-      <CoveragePanel />
-      <Divider />
-      <CameraListPanel />
-      <Divider />
-      <LightingPanel />
-      <Divider />
-      <ScanUploadPanel />
+    <aside className="w-[20rem] shrink-0 flex flex-col gap-3 min-h-0">
+      <BentoCard title="Coverage" className="shrink-0">
+        <CoveragePanel />
+      </BentoCard>
+
+      <TerminalFrame
+        title="activity.log"
+        status="streaming"
+        className="shrink-0"
+        bodyClassName="overflow-y-auto scroll-thin max-h-48"
+      >
+        <AlertsPanel />
+      </TerminalFrame>
+
+      <TerminalFrame
+        title="k2.reasoning"
+        status="stream"
+        className="flex-1 min-h-0"
+        bodyClassName="overflow-y-auto scroll-thin"
+      >
+        <K2ReasoningPanel />
+      </TerminalFrame>
     </aside>
   )
-}
-
-function Divider() {
-  return <div className="border-t border-border mx-3" />
 }

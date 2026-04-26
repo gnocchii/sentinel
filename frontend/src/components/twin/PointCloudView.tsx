@@ -45,7 +45,7 @@ export default function PointCloudView() {
 
   if (!pointCloud) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-bg text-center p-8">
+      <div className="w-full h-full flex items-center justify-center bg-transparent text-center p-8">
         <div className="space-y-2 max-w-md">
           <p className="text-text text-sm">No point cloud available</p>
           <p className="text-dim text-xs">

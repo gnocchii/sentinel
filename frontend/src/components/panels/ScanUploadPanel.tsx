@@ -12,7 +12,7 @@ function formatBytes(n: number) {
 }
 
 export default function ScanUploadPanel() {
-  const { setPointCloud, setActiveTab } = useSentinel()
+  const { setPointCloud, setActiveTab, pushActivity, startLoading, stopLoading, setLoadingProgress } = useSentinel()
   const [scanId, setScanId] = useState<string | null>(null)
   const [status, setStatus] = useState<"idle" | "uploading" | "processing" | "done" | "failed">("idle")
   const [message, setMessage] = useState("Export a LiDAR point cloud as .ply and upload it.")
@@ -29,6 +29,8 @@ export default function ScanUploadPanel() {
       return
     }
 
+    startLoading("upload-ply", `Uploading ${file.name}`)
+    pushActivity({ severity: "info", title: "LiDAR scan upload started", body: `${file.name} · ${formatBytes(file.size)}` })
     try {
       setStatus("uploading")
       setMessage(`Uploading ${file.name} (${formatBytes(file.size)})…`)
@@ -40,6 +42,7 @@ export default function ScanUploadPanel() {
 
       const maxAttempts = 40
       for (let i = 0; i < maxAttempts; i++) {
+        setLoadingProgress("upload-ply", Math.min(95, 10 + (i / maxAttempts) * 85))
         const s = await fetchScanStatus(uploaded.scan_id)
         if (s.status === "done") {
           const pointCloud = await fetchScanPointCloud(uploaded.scan_id)
@@ -47,11 +50,19 @@ export default function ScanUploadPanel() {
           setActiveTab("point-cloud")
           setStatus("done")
           setMessage(`Loaded ${pointCloud.count.toLocaleString()} points from ${s.filename}`)
+          pushActivity({
+            severity: "success",
+            title: "Point cloud ingested",
+            body: `${pointCloud.count.toLocaleString()} pts · ${s.filename}`,
+          })
+          stopLoading("upload-ply")
           return
         }
         if (s.status === "failed") {
           setStatus("failed")
           setMessage(s.error ?? "Processing failed")
+          pushActivity({ severity: "critical", title: "Scan processing failed", body: s.error ?? "Unknown" })
+          stopLoading("upload-ply")
           return
         }
         await new Promise((r) => setTimeout(r, 1200))
@@ -59,34 +70,36 @@ export default function ScanUploadPanel() {
 
       setStatus("failed")
       setMessage("Timed out while waiting for processing to complete")
+      pushActivity({ severity: "warning", title: "Scan processing timed out" })
+      stopLoading("upload-ply")
     } catch (err) {
       setStatus("failed")
       setMessage(err instanceof Error ? err.message : "Upload failed")
+      pushActivity({ severity: "critical", title: "LiDAR upload failed", body: err instanceof Error ? err.message : String(err) })
+      stopLoading("upload-ply")
     }
   }
 
   return (
-    <section className="p-4 space-y-3">
-      <h2 className="text-dim text-xs tracking-widest uppercase">LiDAR Upload</h2>
-
-      <label className="block text-xs text-text">
-        <span className="block mb-1 text-dim">Upload .ply scan</span>
+    <section className="px-5 pb-5 space-y-3">
+      <label className="block">
         <input
           type="file"
           accept=".ply"
-          className="block w-full text-xs file:mr-3 file:py-1.5 file:px-2 file:rounded file:border-0 file:bg-cyan/20 file:text-cyan"
+          className="block w-full text-[11px] text-dim file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-white/10 file:bg-white/[0.04] file:text-text/90 file:font-medium file:cursor-pointer hover:file:bg-white/[0.08]"
           onChange={onPickFile}
         />
       </label>
 
-      <div className="text-[11px] leading-relaxed text-dim break-words">{message}</div>
+      <div className="text-[11px] leading-relaxed text-text/70 break-words">{message}</div>
 
-      <div className="flex items-center gap-2 text-[11px]">
-        <StatusDot status={status} />
-        <span className="uppercase tracking-wide">{status}</span>
+      <div className="flex items-center justify-between text-[11px]">
+        <div className="flex items-center gap-2">
+          <StatusDot status={status} />
+          <span className="text-text/80 capitalize">{status}</span>
+        </div>
+        {scanId && <span className="text-[10px] text-dim font-mono truncate max-w-[60%]">{scanId}</span>}
       </div>
-
-      {scanId && <div className="text-[10px] text-dim">scan_id: {scanId}</div>}
     </section>
   )
 }

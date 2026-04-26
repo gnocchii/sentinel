@@ -107,37 +107,28 @@ export default function K2Panel() {
   }, [k2Streaming, clearK2Text, setK2Streaming, appendK2Thinking, appendK2Text, setCameras])
 
   return (
-    <section className="flex flex-col p-4 space-y-2 shrink-0" style={{ height: "22rem" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-dim text-xs tracking-widest uppercase">K2 Think V2</h2>
-        <div className="flex items-center gap-2">
-          {k2Streaming && (
-            <span className="flex items-center gap-1 text-[10px] text-cyan">
-              <span className="w-1 h-1 rounded-full bg-cyan animate-pulse" />
-              streaming
-            </span>
-          )}
-          <button
-            onClick={runK2}
-            className={`
-              text-[10px] font-mono px-2 py-0.5 rounded border transition-colors
-              ${k2Streaming
-                ? "border-red-500/60 text-red-400 hover:bg-red-500/10"
-                : "border-cyan/40 text-cyan hover:bg-cyan/10"}
-            `}
-          >
-            {k2Streaming ? "Stop" : "Run K2 Placement"}
-          </button>
-        </div>
+    <section className="flex flex-col px-5 pb-5 space-y-2 flex-1 min-h-0">
+      <div className="flex items-center justify-end gap-2">
+        {k2Streaming && (
+          <span className="flex items-center gap-1.5 text-[10px] text-text/70">
+            <span className="w-1 h-1 rounded-full bg-text/70 animate-pulse" />
+            streaming
+          </span>
+        )}
+        <button
+          onClick={runK2}
+          className={k2Streaming ? "glass-btn glass-btn--danger" : "glass-btn"}
+        >
+          {k2Streaming ? "Stop" : "Run Placement"}
+        </button>
       </div>
 
       {/* Thinking box */}
       <div className="flex flex-col flex-1 min-h-0">
-        <span className="text-[9px] text-dim uppercase tracking-widest mb-0.5">Reasoning</span>
+        <span className="text-[10px] text-dim uppercase tracking-[0.14em] mb-1.5">Reasoning</span>
         <div
           ref={thinkRef}
-          className="flex-1 overflow-y-auto text-[10px] leading-relaxed text-dim font-mono bg-bg/40 rounded p-2 border border-border/60 italic"
+          className="flex-1 overflow-y-auto text-[10.5px] leading-relaxed text-dim/85 font-mono bg-black/30 rounded-xl p-3 border border-white/[0.04] italic scroll-thin"
         >
           {k2Thinking
             ? k2Thinking
@@ -148,10 +139,10 @@ export default function K2Panel() {
 
       {/* Answer box */}
       <div className="flex flex-col flex-1 min-h-0">
-        <span className="text-[9px] text-dim uppercase tracking-widest mb-0.5">Placements</span>
+        <span className="text-[10px] text-dim uppercase tracking-[0.14em] mb-1.5">Placements</span>
         <div
           ref={answerRef}
-          className="flex-1 overflow-y-auto text-[11px] leading-relaxed text-cyan font-mono bg-bg/60 rounded p-2 border border-border"
+          className="flex-1 overflow-y-auto text-[11px] leading-relaxed text-cyan/95 font-mono bg-black/30 rounded-xl p-3 border border-cyan/10 scroll-thin"
         >
           {k2Text
             ? k2Text

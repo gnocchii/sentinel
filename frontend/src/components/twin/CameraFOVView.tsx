@@ -24,9 +24,10 @@ interface Props {
   width?: number
   height?: number
   className?: string
+  fill?: boolean
 }
 
-export default function CameraFOVView({ camera, width = 480, height = 270, className = "" }: Props) {
+export default function CameraFOVView({ camera, width = 480, height = 270, className = "", fill = true }: Props) {
   const videoRef  = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef    = useRef<number>(0)
@@ -145,11 +146,11 @@ export default function CameraFOVView({ camera, width = 480, height = 270, class
     : ""
 
   if (!config || !sceneSupportsVideo) {
-    return <StaticCameraPreview camera={camera} width={width} height={height} className={className} hour={simulationHour} />
+    return <StaticCameraPreview camera={camera} width={width} height={height} className={className} hour={simulationHour} fill={fill} />
   }
 
   return (
-    <div className={`relative rounded overflow-hidden ${className}`} style={{ width, height }}>
+    <div className={`relative rounded overflow-hidden ${className}`} style={fill ? { width: "100%", height: "100%" } : { width, height }}>
       {/* Hidden video source — only attached for the Avery House demo */}
       {sceneSupportsVideo && (
         <video
@@ -169,7 +170,7 @@ export default function CameraFOVView({ camera, width = 480, height = 270, class
         ref={canvasRef}
         width={width}
         height={height}
-        style={{ filter: cssFilter, display: "block" }}
+        style={{ filter: cssFilter, display: "block", width: fill ? "100%" : width, height: fill ? "100%" : height }}
       />
 
       {/* Fallback: video error OR 4s timeout */}
@@ -186,9 +187,9 @@ export default function CameraFOVView({ camera, width = 480, height = 270, class
 }
 
 function StaticCameraPreview({
-  camera, width, height, className = "", hour,
+  camera, width, height, className = "", hour, fill = false,
 }: {
-  camera: Camera; width: number; height: number; className?: string; hour: number
+  camera: Camera; width: number; height: number; className?: string; hour: number; fill?: boolean
 }) {
   const isNight = hour >= 21 || hour < 5
   const tint = isNight ? "from-[#001020] to-[#000810]" : "from-[#142035] to-[#0a131e]"
@@ -196,7 +197,7 @@ function StaticCameraPreview({
   return (
     <div
       className={`relative overflow-hidden rounded border ${accent} ${className}`}
-      style={{ width, height }}
+      style={fill ? { width: "100%", height: "100%" } : { width, height }}
     >
       <div className={`absolute inset-0 bg-gradient-to-br ${tint}`} />
       {/* Scan lines */}

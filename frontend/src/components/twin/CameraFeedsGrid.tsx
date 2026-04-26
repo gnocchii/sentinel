@@ -57,7 +57,7 @@ export default function CameraFeedsGrid() {
 
   if (cameras.length === 0) {
     return (
-      <div className="w-full h-full flex flex-col bg-bg">
+      <div className="w-full h-full flex flex-col bg-transparent">
         {debugBanner}
         <div className="flex-1 flex items-center justify-center text-center p-8">
           <div className="space-y-2 max-w-md">
@@ -107,7 +107,7 @@ export default function CameraFeedsGrid() {
 
   if (error) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-bg text-center p-8">
+      <div className="w-full h-full flex items-center justify-center bg-transparent text-center p-8">
         <div className="space-y-2">
           <p className="text-dim text-sm">Video not found at <span className="text-cyan font-mono">frontend/public/walkthrough.mp4</span></p>
           <a
@@ -121,7 +121,7 @@ export default function CameraFeedsGrid() {
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-bg overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-transparent overflow-hidden">
       {debugBanner}
       {/* Top: selected camera — large featured view */}
       {selectedCam && (
@@ -406,7 +406,7 @@ function FbxFeedsLayout({
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-bg overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-transparent overflow-hidden">
       <div className="px-4 py-2 border-b border-border">
         <p className="text-dim text-[10px]">
           FBX POV ·
@@ -527,7 +527,7 @@ function StaticFeedsLayout({
   }
 
   return (
-    <div className="w-full h-full flex flex-col bg-bg overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-transparent overflow-hidden">
       <div className="px-4 py-2 border-b border-border">
         <p className="text-dim text-[10px]">
           Synthetic camera previews · no walkthrough video for this scan ·
