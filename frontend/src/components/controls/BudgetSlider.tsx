@@ -1,8 +1,7 @@
 "use client"
-import { useCallback, useRef } from "react"
+import { useCallback } from "react"
 import { useSentinel } from "@/store/sentinel"
-import { optimizeCameras } from "@/lib/api"
-import { useK2Stream } from "@/hooks/useK2Stream"
+import { optimizeImportance } from "@/lib/api"
 
 const MIN = 500
 const MAX = 25000
@@ -16,28 +15,32 @@ function logToBudget(t: number) {
 }
 
 export default function BudgetSlider() {
-  const { budget, setBudget, setCameras, setCoveragePct, scene } = useSentinel()
-  const { runBudgetTradeoff } = useK2Stream()
-  const prevBudget = useRef(budget)
+  const {
+    budget, setBudget,
+    sceneId, setCameras, setCoveragePct,
+    importanceScore, setImportanceScore,
+    optimizing, setOptimizing,
+  } = useSentinel()
 
-  const handleChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newBudget = logToBudget(Number(e.target.value))
-      setBudget(newBudget)
+  const handleSlide = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setBudget(logToBudget(Number(e.target.value)))
+  }, [setBudget])
 
-      if (!scene) return
-      try {
-        const result = await optimizeCameras(scene.id, newBudget)
-        setCameras(result.cameras)
-        setCoveragePct(result.coverage_pct)
-        runBudgetTradeoff(newBudget, prevBudget.current)
-        prevBudget.current = newBudget
-      } catch (err) {
-        console.error("budget optimize failed", err)
-      }
-    },
-    [scene, setBudget, setCameras, setCoveragePct, runBudgetTradeoff]
-  )
+  const handleOptimize = useCallback(async () => {
+    if (!sceneId || optimizing) return
+    setOptimizing(true)
+    try {
+      const result = await optimizeImportance(sceneId, budget, 12)
+      setCameras(result.cameras)
+      setCoveragePct(result.score * 100)
+      setImportanceScore(result.score)
+    } catch (err) {
+      console.error("optimize failed", err)
+      alert(`Optimize failed: ${err}`)
+    } finally {
+      setOptimizing(false)
+    }
+  }, [sceneId, budget, optimizing, setCameras, setCoveragePct, setImportanceScore, setOptimizing])
 
   const pct = budgetToLog(budget)
 
@@ -50,12 +53,24 @@ export default function BudgetSlider() {
         max={1}
         step={0.001}
         value={pct}
-        onChange={handleChange}
+        onChange={handleSlide}
         className="flex-1 accent-cyan h-1 cursor-pointer"
       />
       <span className="text-cyan text-xs font-semibold shrink-0 w-20 text-right">
         ${budget.toLocaleString()}
       </span>
+      <button
+        onClick={handleOptimize}
+        disabled={optimizing || !sceneId}
+        className="px-3 py-1 rounded text-xs border border-cyan/40 text-cyan hover:bg-cyan/10 transition-colors disabled:opacity-50 shrink-0"
+      >
+        {optimizing ? "Optimizing…" : "Optimize Cameras"}
+      </button>
+      {importanceScore > 0 && (
+        <span className="text-green text-xs font-mono shrink-0">
+          {(importanceScore * 100).toFixed(1)}%
+        </span>
+      )}
     </div>
   )
 }

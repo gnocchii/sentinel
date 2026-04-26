@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { Scene, Camera, TwinTab, ThreatPath, CameraLighting, PointCloudData } from "@/lib/types"
+import type { Scene, Camera, TwinTab, ThreatPath, CameraLighting, PointCloudData, ImportancePayload } from "@/lib/types"
 
 interface SentinelState {
   // ─── Scene ─────────────────────────────────────────────────────
@@ -46,6 +46,16 @@ interface SentinelState {
   clearK2Text: () => void
   k2Streaming: boolean
   setK2Streaming: (v: boolean) => void
+
+  // ─── Importance map ───────────────────────────────────────────
+  importance: ImportancePayload | null
+  setImportance: (i: ImportancePayload | null) => void
+  sceneId: string
+  setSceneId: (id: string) => void
+  importanceScore: number
+  setImportanceScore: (s: number) => void
+  optimizing: boolean
+  setOptimizing: (v: boolean) => void
 }
 
 export const useSentinel = create<SentinelState>((set) => ({
@@ -58,7 +68,7 @@ export const useSentinel = create<SentinelState>((set) => ({
   selectedCameraId: null,
   selectCamera: (selectedCameraId) => set({ selectedCameraId }),
 
-  activeTab: "camera-feeds",
+  activeTab: "importance-map",
   setActiveTab: (activeTab) => set({ activeTab }),
 
   budget: 2500,
@@ -84,4 +94,14 @@ export const useSentinel = create<SentinelState>((set) => ({
   clearK2Text: () => set({ k2Text: "" }),
   k2Streaming: false,
   setK2Streaming: (k2Streaming) => set({ k2Streaming }),
+
+  importance: null,
+  setImportance: (importance) => set({ importance }),
+  sceneId: "avery_house",
+  setSceneId: (sceneId) => set({ sceneId }),
+
+  importanceScore: 0,
+  setImportanceScore: (importanceScore) => set({ importanceScore }),
+  optimizing: false,
+  setOptimizing: (optimizing) => set({ optimizing }),
 }))
