@@ -12,6 +12,7 @@ const TABS: { id: TwinTab; label: string }[] = [
   { id: "threat-path",    label: "Threat Path" },
   { id: "mesh-optimizer", label: "Mesh Optimizer" },
   { id: "importance-map", label: "Importance Map" },
+  { id: "what-if",        label: "What-If" },
 ]
 
 export default function SceneDock() {

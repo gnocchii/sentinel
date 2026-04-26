@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.api.routes import scene, cameras, k2, lighting, spatial, scans, importance
+from app.api.routes import scene, cameras, k2, lighting, spatial, scans, importance, report
 from app.api.routes.spatial import _manifest_store
 from app.services.scene_to_manifest import scene_to_manifest
 
@@ -42,6 +42,7 @@ app.include_router(lighting.router)
 app.include_router(spatial.router)
 app.include_router(scans.router)
 app.include_router(importance.router)
+app.include_router(report.router)
 
 
 @app.get("/health")

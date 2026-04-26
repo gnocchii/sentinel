@@ -1,7 +1,9 @@
+import copy
 import json
 import tempfile
 from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from app.services.usda_parser import parse_usdz, write_scene
 
@@ -65,6 +67,57 @@ def get_pointcloud(scene_id: str):
 def get_analysis(scene_id: str):
     scene = load_scene(scene_id)
     return scene.get("analysis", {})
+
+
+class WhatIfRequest(BaseModel):
+    scene_id: str
+    removed_entry_ids: list[str] = []
+    budget_usd: float = 2500.0
+
+
+@router.post("/what-if")
+async def what_if_analysis(req: WhatIfRequest):
+    """
+    Re-run camera placement on a modified scene (entry points blocked/removed).
+    Returns new camera list + coverage delta vs the original scene — no persistence.
+    """
+    from app.services.importance_grid import build_importance_grid
+    from app.services.optimizer import optimize
+
+    scene = load_scene(req.scene_id)
+    modified = copy.deepcopy(scene)
+    modified["entry_points"] = [
+        ep for ep in modified["entry_points"]
+        if ep["id"] not in req.removed_entry_ids
+    ]
+
+    # Use empty K2 scores so the grid is geometry-based (fast, no API call)
+    raster = build_importance_grid(modified, scores={})
+    result = optimize(
+        modified,
+        raster["grid"],
+        raster["bounds"],
+        raster["resolution"],
+        budget_usd=req.budget_usd,
+        max_cameras=12,
+    )
+
+    orig_coverage = scene.get("analysis", {}).get("coverage_pct", 0.0)
+    orig_count = len(scene.get("cameras", []))
+    new_coverage = round(result["score"] * 100, 2)
+
+    return {
+        "cameras": result["cameras"],
+        "coverage_pct": new_coverage,
+        "total_cost_usd": result["total_cost_usd"],
+        "entry_points_covered": result["entry_points_covered"],
+        "entry_points_total": result["entry_points_total"],
+        "blind_spots": result["blind_spots"],
+        "removed_entry_ids": req.removed_entry_ids,
+        "orig_coverage_pct": orig_coverage,
+        "delta_coverage_pct": round(new_coverage - orig_coverage, 2),
+        "delta_camera_count": len(result["cameras"]) - orig_count,
+    }
 
 
 def _generate_pointcloud(scene: dict) -> list[list[float]]:

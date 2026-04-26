@@ -1,14 +1,20 @@
 "use client"
 import { useRef, useState } from "react"
 import { useSentinel } from "@/store/sentinel"
-import { uploadUsdz, fetchScene, fetchImportance, recomputeImportance, streamImportanceReasoning } from "@/lib/api"
+import { uploadUsdz, fetchScene, fetchImportance, recomputeImportance, streamImportanceReasoning, exportReport } from "@/lib/api"
 
 export default function TopBar() {
-  const { scene, setScene, setImportance, setSceneId, sceneId, appendK2Text, clearK2Text, setK2Streaming, setFeedsFbxUrl, feedsFbxUrl } = useSentinel()
+  const {
+    scene, setScene, setImportance, setSceneId, sceneId,
+    appendK2Text, clearK2Text, setK2Streaming,
+    setFeedsFbxUrl, feedsFbxUrl,
+    budget,
+  } = useSentinel()
   const fileRef = useRef<HTMLInputElement>(null)
   const fbxRef  = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [reasoning, setReasoning] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const alerts = scene?.analysis.lighting_risks.length ?? 0
 
@@ -20,7 +26,6 @@ export default function TopBar() {
       setSceneId(id)
       const s = await fetchScene(id)
       setScene(s)
-      // Trigger importance compute (cached after first run)
       const imp = await fetchImportance(id)
       setImportance(imp)
     } catch (e) {
@@ -32,10 +37,8 @@ export default function TopBar() {
   }
 
   const handleUploadFbx = (file: File) => {
-    console.log("[FBX] selected", file.name, file.size, "bytes")
     const url = URL.createObjectURL(file)
     setFeedsFbxUrl(url)
-    console.log("[FBX] blob URL:", url)
   }
 
   const handleReason = () => {
@@ -49,12 +52,23 @@ export default function TopBar() {
       () => {
         setK2Streaming(false)
         setReasoning(false)
-        // After streaming, fetch the parsed importance grid
         recomputeImportance(sceneId).then(setImportance).catch(() => {})
       },
     )
-    // safety: stop after 2 minutes
     setTimeout(() => stop(), 120_000)
+  }
+
+  const handleExportPdf = async () => {
+    if (!sceneId) return
+    setExporting(true)
+    try {
+      await exportReport(sceneId, budget)
+    } catch (e) {
+      console.error(e)
+      alert(`PDF export failed: ${e}`)
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -117,9 +131,16 @@ export default function TopBar() {
         >
           {reasoning ? "Streaming…" : "Stream K2"}
         </button>
+        <button
+          onClick={handleExportPdf}
+          disabled={exporting || !sceneId}
+          className="glass-btn"
+        >
+          {exporting ? "Exporting…" : "Export PDF"}
+        </button>
       </div>
 
-      {/* Right — alerts only (keep minimal) */}
+      {/* Right — alerts only */}
       <div className="flex items-center justify-end gap-2">
         {alerts > 0 && <Pill color="amber">{alerts} alert{alerts > 1 ? "s" : ""}</Pill>}
       </div>

@@ -7,6 +7,7 @@ import ThreatPath from "./ThreatPath"
 import CameraFeedsGrid from "./CameraFeedsGrid"
 import MeshOptimizer from "./MeshOptimizer"
 import ImportanceMap from "./ImportanceMap"
+import WhatIfEditor from "./WhatIfEditor"
 
 export default function SceneViewer() {
   const { activeTab } = useSentinel()
@@ -19,6 +20,7 @@ export default function SceneViewer() {
       {activeTab === "threat-path"    && <ThreatPath />}
       {activeTab === "mesh-optimizer" && <MeshOptimizer />}
       {activeTab === "importance-map" && <ImportanceMap />}
+      {activeTab === "what-if"        && <WhatIfEditor />}
     </div>
   )
 }
