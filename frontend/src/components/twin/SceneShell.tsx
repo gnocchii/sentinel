@@ -56,6 +56,7 @@ interface SceneShellProps {
   showCameras?: boolean
   showFOV?: boolean
   showEntryPoints?: boolean
+  showWalls?: boolean
   floorOpacity?: number
 }
 
@@ -64,6 +65,7 @@ export function SceneShell({
   showCameras = true,
   showFOV = true,
   showEntryPoints = true,
+  showWalls = true,
   floorOpacity = 0.85,
 }: SceneShellProps) {
   const { cameras, selectedCameraId } = useSentinel()
@@ -82,7 +84,7 @@ export function SceneShell({
       </mesh>
 
       {/* Walls */}
-      {scene.walls.map((wall) => <WallMesh key={wall.id} wall={wall} />)}
+      {showWalls && scene.walls.map((wall) => <WallMesh key={wall.id} wall={wall} />)}
 
       {/* Obstructions */}
       {(scene.obstructions ?? []).map((obs) => <ObstructionMesh key={obs.id} obs={obs} />)}
