@@ -9,6 +9,8 @@ POST /spatial/camera-view          — render POV image from a camera placement
 GET  /spatial/manifest/{id}        — retrieve a previously computed manifest
 """
 
+from __future__ import annotations
+
 import io
 import json
 import base64

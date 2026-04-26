@@ -31,7 +31,8 @@ export default function FOVCone({ camera, selected }: { camera: Camera; selected
     if (length < 1e-3) return { position: pos, quaternion: new THREE.Quaternion(), length: 0, radius: 0 }
     dir.normalize()
     const up = new THREE.Vector3(0, 1, 0)
-    const q = new THREE.Quaternion().setFromUnitVectors(up, dir)
+    // Negate so tip (+Y) is at camera position, base opens toward target
+    const q = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().negate())
     const midPoint = pos.clone().add(dir.clone().multiplyScalar(length / 2))
     const radius = Math.tan(THREE.MathUtils.degToRad(camera.fov_h / 2)) * length
     return { position: midPoint, quaternion: q, length, radius }
@@ -65,12 +66,12 @@ function ConeOutline({
 }) {
   // Build line segments from apex (-length/2 along Y) to 4 evenly-spaced points on the base circle (+length/2)
   const points = useMemo(() => {
-    const apex = new THREE.Vector3(0, -length / 2, 0)
+    const apex = new THREE.Vector3(0, length / 2, 0)
     const base: THREE.Vector3[] = []
     const N = 4
     for (let i = 0; i < N; i++) {
       const a = (i / N) * Math.PI * 2
-      base.push(new THREE.Vector3(Math.cos(a) * radius, length / 2, Math.sin(a) * radius))
+      base.push(new THREE.Vector3(Math.cos(a) * radius, -length / 2, Math.sin(a) * radius))
     }
     // Spokes from apex to base + a base ring
     const segs: number[] = []

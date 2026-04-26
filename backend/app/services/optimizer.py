@@ -79,7 +79,8 @@ def optimize(
     if total_weight <= 0:
         return {"cameras": locked_cameras, "score": 0.0, "total_cost_usd": _cost(locked_cameras), "iterations": []}
 
-    candidates = _build_candidates(scene, candidate_step)
+    virtual_walls = _close_perimeter(scene)
+    candidates = _build_candidates(scene, candidate_step, virtual_walls)
     if not candidates:
         return {"cameras": locked_cameras, "score": 0.0, "total_cost_usd": _cost(locked_cameras), "iterations": []}
 
@@ -144,7 +145,7 @@ def _precompute_candidate_visibility(scene, candidates, cells_xy, segments, aabb
     Returns list of dicts: { cand_idx, ctype, mask }.
     """
     out: list[dict] = []
-    cells_3d = np.column_stack([cells_xy, np.zeros(len(cells_xy))])
+    cells_3d = np.column_stack([cells_xy, np.full(len(cells_xy), 1.2)])
     for cand_idx, cand in enumerate(candidates):
         cam_xy = np.array(cand["position"][:2])
         cam_pos_3d = np.array(cand["position"], dtype=float)
@@ -187,11 +188,87 @@ def _greedy_pick(precomputed, weights, covered, budget_remaining, exclude):
 # ─── candidates ───────────────────────────────────────────────────
 
 
-def _build_candidates(scene: dict, step: float) -> list[dict]:
-    """
-    Mount points along each wall, every `step` meters, offset 0.4m inward and
-    up to ceiling height. Returns list of {position, target, wall_id, normal}.
+MIN_WALL_CLEARANCE = 0.25  # candidate must be at least this far from every wall
+MAX_CLOSURE_GAP    = 4.0   # only close perimeter gaps smaller than this (m)
 
+
+def _close_perimeter(scene: dict) -> list[dict]:
+    """
+    Find dangling wall endpoints (touched by exactly one wall segment) and
+    connect nearby pairs with virtual closure walls. These are used only for
+    candidate clearance — not added to the scene and not used in raycasting.
+
+    This closes building-perimeter gaps without affecting doorways, since
+    doorways have real wall segments on both sides whose ends connect to
+    adjacent walls and are therefore not dangling.
+    """
+    from collections import defaultdict
+
+    walls = scene.get("walls", [])
+    if not walls:
+        return []
+
+    # Snap resolution: endpoints within this distance are treated as the same node
+    SNAP = 0.15
+
+    def snap(pt: list) -> tuple:
+        return (round(pt[0] / SNAP) * SNAP, round(pt[1] / SNAP) * SNAP)
+
+    degree: dict[tuple, int] = defaultdict(int)
+    for w in walls:
+        degree[snap(w["from"])] += 1
+        degree[snap(w["to"])] += 1
+
+    # Dangling = only one wall touches this endpoint
+    dangles = [pt for pt, d in degree.items() if d == 1]
+    if len(dangles) < 2:
+        return []
+
+    virtual: list[dict] = []
+    used: set[int] = set()
+    for i in range(len(dangles)):
+        if i in used:
+            continue
+        best_j, best_dist = None, float("inf")
+        for j in range(len(dangles)):
+            if j == i or j in used:
+                continue
+            d = math.hypot(dangles[i][0] - dangles[j][0], dangles[i][1] - dangles[j][1])
+            if d < best_dist:
+                best_dist = d
+                best_j = j
+        if best_j is not None and best_dist <= MAX_CLOSURE_GAP:
+            a, b = dangles[i], dangles[best_j]
+            virtual.append({
+                "id": f"_vwall_{i}",
+                "from": [a[0], a[1]],
+                "to":   [b[0], b[1]],
+                "height": 2.7,
+            })
+            used.add(i)
+            used.add(best_j)
+
+    print(f"[optimizer] perimeter closure: {len(virtual)} virtual wall(s) added")
+    return virtual
+
+
+def _dist_to_segment(px: float, py: float, x0: float, y0: float, x1: float, y1: float) -> float:
+    """Minimum distance from point (px, py) to line segment (x0,y0)→(x1,y1)."""
+    dx, dy = x1 - x0, y1 - y0
+    seg_len_sq = dx * dx + dy * dy
+    if seg_len_sq < 1e-12:
+        return math.hypot(px - x0, py - y0)
+    t = max(0.0, min(1.0, ((px - x0) * dx + (py - y0) * dy) / seg_len_sq))
+    return math.hypot(px - (x0 + t * dx), py - (y0 + t * dy))
+
+
+def _build_candidates(scene: dict, step: float, virtual_walls: Optional[list[dict]] = None) -> list[dict]:
+    """
+    Mount points along each wall, every `step` meters, offset inward toward
+    the scene center up to ceiling height.
+
+    Constraint A: candidates must be at least MIN_WALL_CLEARANCE from every
+    wall (real + virtual perimeter closure walls).
     Constraint B: candidates must be inside a room polygon (Polycam scenes).
     Without this the optimizer can "cheat" by placing a camera outside the
     mesh and still claim coverage of room cells. avery_house (no _raw_rooms)
@@ -202,13 +279,28 @@ def _build_candidates(scene: dict, step: float) -> list[dict]:
     cz = min(CEILING_HEIGHT, bounds["max"][2] - 0.1)
 
     walls = scene.get("walls", [])
+    # Virtual perimeter walls used only for clearance — not for raycasting
+    all_walls_for_clearance = walls + (virtual_walls or [])
+
+    wall_segments = [
+        (w["from"][0], w["from"][1], w["to"][0], w["to"][1])
+        for w in all_walls_for_clearance
+    ]
+
+    def clear_of_all_walls(x: float, y: float, source_wall_id: str) -> bool:
+        for w, seg in zip(all_walls_for_clearance, wall_segments):
+            if w["id"] == source_wall_id:
+                continue
+            if _dist_to_segment(x, y, *seg) < MIN_WALL_CLEARANCE:
+                return False
+        return True
+
     for w in walls:
         x0, y0 = w["from"]
         x1, y1 = w["to"]
         length = math.hypot(x1 - x0, y1 - y0)
         if length < 0.5:
             continue
-        # Wall direction + inward normal (toward scene centroid)
         dx, dy = (x1 - x0) / length, (y1 - y0) / length
         nx, ny = -dy, dx
         # Flip normal toward scene center if needed
@@ -218,20 +310,23 @@ def _build_candidates(scene: dict, step: float) -> list[dict]:
         if (nx * (cx - wall_mid_x) + ny * (cy - wall_mid_y)) < 0:
             nx, ny = -nx, -ny
 
-        n_steps = max(1, int(length / step))
+        n_steps = max(1, int(length / 0.5))
         for i in range(n_steps + 1):
             t = i / n_steps if n_steps > 0 else 0.5
-            mx = x0 + t * (x1 - x0) + nx * 0.3
-            my = y0 + t * (y1 - y0) + ny * 0.3
-            # Skip if outside scene bounds
+            mx = x0 + t * (x1 - x0) + nx * 0.6
+            my = y0 + t * (y1 - y0) + ny * 0.6
             if not (bounds["min"][0] <= mx <= bounds["max"][0]):
                 continue
             if not (bounds["min"][1] <= my <= bounds["max"][1]):
                 continue
-            target = [mx + nx * 4.0, my + ny * 4.0, 0.0]
+            if not clear_of_all_walls(mx, my, w["id"]):
+                continue
+            # Clip target to scene bounds so it can't shoot through into adjacent rooms
+            tx = max(bounds["min"][0], min(bounds["max"][0], mx + nx * 4.0))
+            ty = max(bounds["min"][1], min(bounds["max"][1], my + ny * 4.0))
             candidates.append({
                 "position": [round(mx, 2), round(my, 2), cz],
-                "target": [round(target[0], 2), round(target[1], 2), 0.0],
+                "target": [round(tx, 2), round(ty, 2), 1.2],
                 "wall_id": w["id"],
                 "normal": [nx, ny, 0.0],
             })
@@ -298,7 +393,7 @@ def _coverage_mask(scene, cameras, cells_xy) -> np.ndarray:
         return out
     segments = _wall_segments(scene)
     aabbs = _obstruction_aabbs(scene)
-    cells_3d = np.column_stack([cells_xy, np.zeros(len(cells_xy))])
+    cells_3d = np.column_stack([cells_xy, np.full(len(cells_xy), 1.2)])
     for cam in cameras:
         fov = camera_fov_mask(
             np.array(cam["position"]), np.array(cam["target"]),

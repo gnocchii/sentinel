@@ -11,6 +11,7 @@ Polycam writes per-element labeled meshes inside a .usda text file:
 Coordinate convention: Polycam uses Y-up; existing scene schema is Z-up.
 We swap (x, y, z) → (x, z, y - floor_min) so the floor sits at scene_z = 0.
 """
+from __future__ import annotations
 
 import json
 import math

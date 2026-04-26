@@ -7,6 +7,7 @@ Pipeline:
 All distances are in metres. Coordinate axes:
   X = east, Y = north, Z = up (right-hand, Z-up)
 """
+from __future__ import annotations
 
 import json
 import numpy as np

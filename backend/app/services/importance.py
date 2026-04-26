@@ -9,6 +9,7 @@ to K2 Think and asks it to:
 Uses the OpenAI-compatible chat completions endpoint at api.k2think.ai.
 Caches by scene hash so re-running the same scan doesn't re-bill.
 """
+from __future__ import annotations
 
 import hashlib
 import json
