@@ -10,16 +10,31 @@ import { SceneShell } from "./SceneShell"
 import { useSentinel } from "@/store/sentinel"
 import type { Camera } from "@/lib/types"
 
+function safeConfigureCamera(
+  c: THREE.PerspectiveCamera,
+  position: [number, number, number],
+  target: [number, number, number],
+  fov_v: number,
+) {
+  const dir = new THREE.Vector3(
+    target[0] - position[0],
+    target[1] - position[1],
+    target[2] - position[2],
+  ).normalize()
+  // up=(0,0,1) degenerates when look direction is nearly parallel to Z axis
+  c.up.set(Math.abs(dir.z) > 0.9 ? 1 : 0, 0, Math.abs(dir.z) > 0.9 ? 0 : 1)
+  c.position.set(position[0], position[1], position[2])
+  c.lookAt(target[0], target[1], target[2])
+  c.fov  = fov_v ?? 70
+  c.near = 0.05
+  c.far  = 200
+  c.updateProjectionMatrix()
+}
+
 function POVCameraSetup({ cam }: { cam: Camera }) {
   const { camera } = useThree() as { camera: THREE.PerspectiveCamera }
   useEffect(() => {
-    camera.up.set(0, 0, 1)
-    camera.position.set(cam.position[0], cam.position[1], cam.position[2])
-    camera.lookAt(cam.target[0], cam.target[1], cam.target[2])
-    camera.fov  = cam.fov_v ?? 70  // Three.js camera.fov is VERTICAL — match the placed cam
-    camera.near = 0.05
-    camera.far  = 200
-    camera.updateProjectionMatrix()
+    safeConfigureCamera(camera, cam.position, cam.target, cam.fov_v)
   }, [
     cam.position[0], cam.position[1], cam.position[2],
     cam.target[0], cam.target[1], cam.target[2],
@@ -58,6 +73,9 @@ export default function CameraPOVCanvas({ camera, hour, size = "large", captureR
         gl={{ antialias: true, powerPreference: "default", preserveDrawingBuffer: true }}
         dpr={size === "mini" ? [1, 1.25] : [1, 2]}
         frameloop={size === "mini" ? "demand" : "always"}
+        onCreated={({ camera: c }) =>
+          safeConfigureCamera(c as THREE.PerspectiveCamera, camera.position, camera.target, camera.fov_v)
+        }
       >
         <color attach="background" args={["#2a3038"]} />
 

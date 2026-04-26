@@ -32,7 +32,7 @@ export default function LiveFeedsPanel() {
   return (
     <section className="h-full min-h-0 p-2">
       <div className="h-full grid grid-cols-2 grid-rows-3 gap-1.5">
-        {cameras.slice(1, 7).map((cam) => (
+        {(() => { const s = cameras.slice(1, 7); return [s[s.length-1], ...s.slice(1,-1), s[0]]; })().map((cam) => (
           <FeedTile
             key={cam.id}
             cam={cam}
