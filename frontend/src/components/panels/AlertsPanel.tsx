@@ -31,8 +31,9 @@ export default function AlertsPanel() {
           </span>
         </div>
       ) : (
-        activities.map((a) => {
+        activities.map((a, i) => {
           const tag = SEV_TAG[a.severity]
+          const isLast = i === activities.length - 1
           return (
             <div key={a.id} className="term-line">
               <span className="term-time">[{stampOf(a.ts)}]</span>
@@ -40,6 +41,7 @@ export default function AlertsPanel() {
               <span className="term-msg">
                 <span className="text-text">{a.title}</span>
                 {a.body && <span className="text-dim"> — {a.body}</span>}
+                {isLast && <span className="k2-cursor ml-1">▊</span>}
               </span>
             </div>
           )

@@ -9,11 +9,18 @@
 
 import { useEffect, useMemo, useRef } from "react"
 import { useThree } from "@react-three/fiber"
+import { Line } from "@react-three/drei"
 import * as THREE from "three"
 import CameraNode from "./CameraNode"
 import FOVCone from "./FOVCone"
 import { useSentinel } from "@/store/sentinel"
-import type { Scene } from "@/lib/types"
+import type { Camera, Scene } from "@/lib/types"
+
+// Visual rotation applied by orbiting the *camera* around the bounds-center
+// instead of rotating the geometry. Quarter-turn (90°) around Z (up) — same
+// on-screen effect as rotating the model, but leaves camera-aim quaternions,
+// FOV cones, and overlay world-coords intact.
+export const SCENE_YAW = Math.PI / 2
 
 export function sceneView(scene: Scene | null) {
   if (!scene) return { center: [0, 0, 0] as [number, number, number], camPos: [10, -10, 10] as [number, number, number] }
@@ -23,11 +30,23 @@ export function sceneView(scene: Scene | null) {
   const sx = b.max[0] - b.min[0]
   const sy = b.max[1] - b.min[1]
   const span = Math.max(sx, sy)
-  // Pull back enough that the long axis fits, then offset diagonally with a softer pitch
+  // Pull back enough that the long axis fits, then offset diagonally with a softer pitch.
+  // Original camera offset (ox, oy, oz) = (0.4d, -0.85d, 0.55d).
+  // We want the same on-top angle but the model rotated 90° on screen — achieved
+  // by rotating the camera offset around Z by SCENE_YAW (90°): (x,y) → (-y, x).
+  // That gives a new ground-plane offset of (0.85d, 0.4d, 0.55d) — same elevation
+  // pitch, just orbited around the bounds-center. Geometry stays in original
+  // world coords, so all camera-aim quaternions and overlays remain correct.
   const dist = span * 0.7 + 6
+  const cos = Math.cos(SCENE_YAW)
+  const sin = Math.sin(SCENE_YAW)
+  const ox = dist * 0.4
+  const oy = -dist * 0.85
+  const rx = ox * cos - oy * sin
+  const ry = ox * sin + oy * cos
   return {
     center: [cx, cy, 1.0] as [number, number, number],
-    camPos: [cx + dist * 0.4, cy - dist * 0.85, dist * 0.55] as [number, number, number],
+    camPos: [cx + rx, cy + ry, dist * 0.55] as [number, number, number],
   }
 }
 
@@ -106,8 +125,40 @@ export function SceneShell({
         <group key={cam.id}>
           <CameraNode camera={cam} selected={cam.id === selectedCameraId} />
           {showFOV && <FOVCone camera={cam} selected={cam.id === selectedCameraId} />}
+          {cam.id === selectedCameraId && <FocalPoint camera={cam} />}
         </group>
       ))}
+    </group>
+  )
+}
+
+// ─── Focal-point indicator: line from camera to its target + reticle ────
+function FocalPoint({ camera }: { camera: Camera }) {
+  const points = useMemo(
+    () => [
+      new THREE.Vector3(...camera.position),
+      new THREE.Vector3(...camera.target),
+    ],
+    [camera.position, camera.target]
+  )
+  return (
+    <group>
+      <Line points={points} color="#00d4ff" lineWidth={1.5} dashed dashSize={0.18} gapSize={0.12} transparent opacity={0.85} />
+      {/* Reticle at the focal point */}
+      <group position={camera.target as [number, number, number]}>
+        <mesh>
+          <ringGeometry args={[0.18, 0.22, 28]} />
+          <meshBasicMaterial color="#00d4ff" transparent opacity={0.95} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh>
+          <ringGeometry args={[0.32, 0.34, 32]} />
+          <meshBasicMaterial color="#00d4ff" transparent opacity={0.45} toneMapped={false} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh>
+          <sphereGeometry args={[0.06, 12, 12]} />
+          <meshBasicMaterial color="#00d4ff" toneMapped={false} />
+        </mesh>
+      </group>
     </group>
   )
 }

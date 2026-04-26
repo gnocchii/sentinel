@@ -52,6 +52,7 @@ export default function ThreatPathView() {
         <directionalLight position={[-20, -10, 18]} intensity={0.4} color="#5b8fb9" />
 
         <CameraReframer center={view.center} camPos={view.camPos} />
+
         <SceneShell scene={scene} showFOV={false} showCameras={true} />
 
         {visiblePaths.map(tp => (
@@ -83,71 +84,89 @@ export default function ThreatPathView() {
         <OrbitControls makeDefault target={view.center} maxPolarAngle={Math.PI / 2.05} />
       </Canvas>
 
-      {/* Overlay */}
-      <div className="absolute top-3 left-3 bg-bg/85 border border-border rounded px-3 py-2 text-xs space-y-2 max-w-xs backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-text font-semibold">Threat Paths</span>
-          {loading && <span className="text-dim animate-pulse text-[10px]">computing…</span>}
-        </div>
-
-        <div className="flex gap-3 text-[10px] text-dim">
-          <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 inline-block rounded" style={{ background: "#ff8800" }} />
-            burglar
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 inline-block rounded" style={{ background: "#ff2244" }} />
-            pro
-          </span>
-        </div>
-
-        <p className="text-dim text-[10px]">
-          Paths avoid camera coverage. Click an entry point to filter.
-        </p>
-
-        <div className="flex flex-wrap gap-1">
-          {entryPoints.map(ep => (
-            <button
-              key={ep.id}
-              onClick={() => setActiveThreatEntry(ep.id === activeThreatEntry ? null : ep.id)}
-              className={`px-2 py-0.5 rounded text-[10px] border transition-colors ${
-                activeThreatEntry === ep.id
-                  ? "bg-red/20 border-red/50 text-red"
-                  : "border-border text-dim hover:text-text"
-              }`}
-            >
-              {ep.label}
-            </button>
-          ))}
-          {activeThreatEntry && (
-            <button
-              onClick={() => setActiveThreatEntry(null)}
-              className="px-2 py-0.5 rounded text-[10px] border border-border text-dim hover:text-text"
-            >
-              All
-            </button>
+      {/* Index panel */}
+      <div className="absolute top-4 left-4 w-[260px] rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
+        <div className="px-3.5 pt-3 pb-2.5 flex items-center justify-between border-b border-white/[0.04]">
+          <div className="flex items-center gap-2">
+            <span className="w-1 h-3.5 rounded-sm bg-red/70" />
+            <span className="text-[10px] uppercase tracking-[0.18em] text-text/85">Threat Paths</span>
+          </div>
+          {loading ? (
+            <span className="text-[9px] font-mono text-cyan/80 animate-pulse">computing</span>
+          ) : (
+            <span className="text-[9px] font-mono text-dim/70">{visiblePaths.length} active</span>
           )}
         </div>
 
-        {breachCameraIds.size > 0 && (
-          <div className="pt-1.5 border-t border-border">
-            <p className="text-amber text-[10px] font-medium mb-0.5">Cameras on attacker path:</p>
-            <div className="flex flex-wrap gap-1">
-              {[...breachCameraIds].map(id => (
-                <span
-                  key={id}
-                  className="text-[10px] text-red font-mono border border-red/30 bg-red/10 rounded px-1"
+        <div className="px-3.5 py-3 space-y-3">
+          <div className="flex items-center gap-4 text-[10px] font-mono">
+            <span className="flex items-center gap-1.5 text-amber">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber shadow-[0_0_6px_rgba(251,191,135,0.7)]" />
+              burglar
+            </span>
+            <span className="flex items-center gap-1.5 text-red">
+              <span className="w-1.5 h-1.5 rounded-full bg-red shadow-[0_0_6px_rgba(243,139,168,0.7)]" />
+              pro
+            </span>
+          </div>
+
+          <p className="text-[10px] text-dim/70 leading-snug">
+            Paths route around camera coverage. Click an entry to filter.
+          </p>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[8.5px] uppercase tracking-[0.16em] text-dim/70">Entries</span>
+              {activeThreatEntry && (
+                <button
+                  onClick={() => setActiveThreatEntry(null)}
+                  className="text-[8.5px] uppercase tracking-[0.14em] text-cyan/80 hover:text-cyan"
                 >
-                  {id}
-                </span>
-              ))}
+                  clear
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-4 gap-1">
+              {entryPoints.map((ep, i) => {
+                const active = activeThreatEntry === ep.id
+                return (
+                  <button
+                    key={ep.id}
+                    onClick={() => setActiveThreatEntry(active ? null : ep.id)}
+                    className={`h-7 rounded-md text-[10px] font-mono border transition-all ${
+                      active
+                        ? "bg-red/15 border-red/45 text-red shadow-[inset_0_0_0_1px_rgba(243,139,168,0.15)]"
+                        : "bg-white/[0.02] border-white/[0.06] text-dim/80 hover:border-cyan/30 hover:text-cyan hover:bg-cyan/[0.04]"
+                    }`}
+                    title={ep.label}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </button>
+                )
+              })}
             </div>
           </div>
-        )}
 
-        {visiblePaths.length === 0 && !loading && (
-          <p className="text-dim text-[10px]">No paths — optimize cameras first.</p>
-        )}
+          {breachCameraIds.size > 0 && (
+            <div className="pt-2.5 border-t border-white/[0.05] space-y-1.5">
+              <span className="text-[8.5px] uppercase tracking-[0.16em] text-amber/85">Breach path · {breachCameraIds.size}</span>
+              <div className="flex flex-wrap gap-1">
+                {[...breachCameraIds].map((id) => (
+                  <span
+                    key={id}
+                    className="text-[10px] font-mono text-red/95 border border-red/25 bg-red/10 rounded px-1.5 py-0.5"
+                  >
+                    {id}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {visiblePaths.length === 0 && !loading && (
+            <p className="text-[10px] text-dim/55 italic">No paths — optimize cameras first.</p>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -21,18 +21,16 @@ export default function LeftRail() {
 
       <TerminalFrame
         title="activity.log"
-        status="streaming"
-        className="shrink-0"
-        bodyClassName="overflow-y-auto scroll-thin max-h-48"
+        className="flex-1 min-h-0 basis-0"
+        bodyClassName="flex-1 min-h-0 overflow-y-auto scroll-thin"
       >
         <AlertsPanel />
       </TerminalFrame>
 
       <TerminalFrame
         title="k2.reasoning"
-        status="stream"
-        className="flex-1 min-h-0"
-        bodyClassName="overflow-y-auto scroll-thin"
+        className="flex-1 min-h-0 basis-0"
+        bodyClassName="flex-1 min-h-0 overflow-y-auto scroll-thin"
       >
         <K2ReasoningPanel />
       </TerminalFrame>

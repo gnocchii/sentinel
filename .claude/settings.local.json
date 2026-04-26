@@ -1,23 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch",
-      "Bash(awk '/^  0$/{getline t; if \\(t ~ /^\\(LINE|LWPOLYLINE|POLYLINE|TEXT|MTEXT|INSERT|CIRCLE|ARC|HATCH|SOLID\\)$/\\) print t}' \"C:/Users/Suhaa/Downloads/Suhaan CS Projects/hacktech/4_25_2026.dxf\")",
-      "Bash(awk *)",
-      "Read(//c/Users/Suhaa/Downloads/**)",
-      "Bash(unzip -l \"C:/Users/Suhaa/Downloads/4_25_2026.usdz\")",
-      "Bash(mkdir -p \"C:/Users/Suhaa/Downloads/Suhaan CS Projects/hacktech/_usdz_inspect\")",
-      "Bash(unzip -o \"C:/Users/Suhaa/Downloads/4_25_2026.usdz\" -d \"C:/Users/Suhaa/Downloads/Suhaan CS Projects/hacktech/_usdz_inspect\")",
-      "Bash(sed 's/_[0-9]*$//')",
-      "Bash(mkdir -p \"C:/Users/Suhaa/Downloads/Suhaan CS Projects/hacktech/_polyexports\")",
-      "Bash(unzip -o \"/c/Users/Suhaa/Downloads/4_25_2026.zip\")",
-      "Bash(unzip -o \"/c/Users/Suhaa/Downloads/4_25_2026 \\(1\\).zip\" -d fbx)",
-      "Bash(unzip -o \"/c/Users/Suhaa/Downloads/4_25_2026 \\(2\\).zip\" -d glb)",
-      "Bash(unzip -o \"/c/Users/Suhaa/Downloads/4_25_2026 \\(3\\).zip\" -d stl)",
-      "Bash(python3 *)",
-      "Bash(unzip -l \"/c/Users/Suhaa/Downloads/4_25_2026 \\(1\\).usdz\")",
-      "Bash(mkdir -p \"C:/Users/Suhaa/Downloads/Suhaan CS Projects/hacktech/_polyexports/multiroom\")",
-      "Bash(unzip -o \"/c/Users/Suhaa/Downloads/4_25_2026 \\(1\\).usdz\" -d \"C:/Users/Suhaa/Downloads/Suhaan CS Projects/hacktech/_polyexports/multiroom\")"
+      "Bash(git -C /Users/melodyyang/sentinal-landing remote -v)",
+      "Bash(git -C /Users/melodyyang/sentinal-landing status)",
+      "Bash(git -C /Users/melodyyang/sentinal-landing branch -a)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git reset *)",
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)",
+      "Bash(git merge *)",
+      "Bash(docker --version)",
+      "Bash(git ls-tree *)",
+      "Bash(git show *)",
+      "Read(//tmp/**)"
     ]
   }
 }

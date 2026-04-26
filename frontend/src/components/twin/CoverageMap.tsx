@@ -68,6 +68,7 @@ export default function CoverageMap() {
         <directionalLight position={[-20, -10, 18]} intensity={0.4} color="#5b8fb9" />
 
         <CameraReframer center={view.center} camPos={view.camPos} />
+
         {/* Hide FOV cones in coverage map — the per-camera floor tiles convey it */}
         <SceneShell scene={scene} floorOpacity={0.6} showFOV={false} />
 

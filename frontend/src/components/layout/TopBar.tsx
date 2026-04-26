@@ -1,21 +1,18 @@
 "use client"
+import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useSentinel } from "@/store/sentinel"
-import { uploadUsdz, fetchScene, fetchImportance, recomputeImportance, streamImportanceReasoning, exportReport, optimizeImportance } from "@/lib/api"
+import { recomputeImportance, streamImportanceReasoning, exportReport, optimizeImportance } from "@/lib/api"
 
 export default function TopBar() {
   const {
-    scene, setScene, setImportance, setSceneId, sceneId,
+    scene, setImportance, sceneId,
     appendK2Text, clearK2Text, setK2Streaming,
-    setFeedsFbxUrl, feedsFbxUrl,
     budget,
     pushActivity, startLoading, stopLoading,
     setCameras, setCoveragePct, setSceneAnalysis,
     setImportanceScore, setOptimizing, optimizing,
   } = useSentinel()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const fbxRef  = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
   const [reasoning, setReasoning] = useState(false)
   const [exporting, setExporting] = useState(false)
 
@@ -66,38 +63,6 @@ export default function TopBar() {
     runOptimize(sceneId)
   }, [sceneId, scene, cameras.length, optimizing, runOptimize])
 
-  const handleUpload = async (file: File) => {
-    setUploading(true)
-    startLoading("upload-usdz", `Parsing ${file.name}`)
-    pushActivity({ severity: "info", title: "USDZ upload started", body: file.name })
-    try {
-      const id = "polycam_scan"
-      await uploadUsdz(file, id)
-      setSceneId(id)
-      const s = await fetchScene(id)
-      setScene(s)
-      const imp = await fetchImportance(id)
-      setImportance(imp)
-      pushActivity({
-        severity: "success",
-        title: "Scene loaded",
-        body: `${s.cameras.length} cameras · ${s.floor_area_m2}m² · ${s.rooms?.length ?? 0} rooms`,
-      })
-    } catch (e) {
-      console.error(e)
-      pushActivity({ severity: "critical", title: "USDZ upload failed", body: String(e) })
-    } finally {
-      setUploading(false)
-      stopLoading("upload-usdz")
-    }
-  }
-
-  const handleUploadFbx = (file: File) => {
-    const url = URL.createObjectURL(file)
-    setFeedsFbxUrl(url)
-    pushActivity({ severity: "success", title: "FBX texture loaded", body: file.name })
-  }
-
   const handleReason = () => {
     if (!sceneId) return
     clearK2Text()
@@ -137,58 +102,20 @@ export default function TopBar() {
 
   return (
     <header className="grid grid-cols-3 items-center px-8 py-4 shrink-0">
-      {/* Left — favicon */}
-      <div className="flex items-center gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/favicon.png"
-          alt="Sentinel"
-          className="w-7 h-7 rounded-md object-cover"
-          style={{ boxShadow: "0 0 14px -2px rgba(137,180,250,0.45)" }}
-        />
-        <div className="h-3.5 w-px bg-white/10" />
-        <span className="text-dim text-[11px] font-mono tracking-tight">
-          v0.1 <span className="text-muted/70 mx-1">·</span> {scene?.name ?? "no scene"}
-        </span>
-      </div>
+      {/* Left — empty */}
+      <div />
 
-      {/* Center — primary actions */}
-      <div className="flex items-center justify-center gap-2">
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".usdz"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) handleUpload(f)
-          }}
-        />
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className={scene ? "glass-btn glass-btn--accent" : "glass-btn"}
-        >
-          {uploading ? "Parsing…" : scene ? "USDZ ✓" : "Upload USDZ"}
-        </button>
-        <input
-          ref={fbxRef}
-          type="file"
-          accept=".fbx"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) handleUploadFbx(f)
-            e.target.value = ""
-          }}
-        />
-        <button
-          onClick={() => fbxRef.current?.click()}
-          className={feedsFbxUrl ? "glass-btn glass-btn--accent" : "glass-btn"}
-          title="Textured FBX rendered in Camera Feeds + Point Cloud tabs"
-        >
-          {feedsFbxUrl ? "FBX ✓" : "Upload FBX"}
-        </button>
+      {/* Center — favicon, navigates back to landing */}
+      <div className="flex items-center justify-center">
+        <Link href="/" aria-label="Back to landing" className="block transition-transform hover:scale-105">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/favicon.png"
+            alt="Sentinel"
+            className="w-8 h-8 rounded-md object-cover"
+            style={{ boxShadow: "0 0 14px -2px rgba(137,180,250,0.45)" }}
+          />
+        </Link>
       </div>
 
       {/* Right — alerts only */}

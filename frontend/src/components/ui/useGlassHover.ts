@@ -1,7 +1,7 @@
 "use client"
 import { useRef, useCallback, type MouseEvent, type RefObject } from "react"
 
-const MAX_TILT = 2.2 // degrees — subtle
+const MAX_TILT = 6.5 // degrees — pronounced glass tilt
 
 export function useGlassHover(opts: { tilt?: boolean } = {}) {
   const tilt = opts.tilt !== false
@@ -21,7 +21,8 @@ export function useGlassHover(opts: { tilt?: boolean } = {}) {
     if (tilt) {
       const ry = ((x - cx) / cx) * MAX_TILT
       const rx = -((y - cy) / cy) * MAX_TILT
-      el.style.transform = `perspective(1000px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`
+      el.style.transition = "transform 120ms ease-out"
+      el.style.transform = `perspective(900px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) scale(1.012)`
     }
 
     // Specular spotlight follows cursor — soft and bluish
@@ -32,7 +33,10 @@ export function useGlassHover(opts: { tilt?: boolean } = {}) {
 
   const onLeave = useCallback(() => {
     const el = cardRef.current
-    if (el) el.style.transform = ""
+    if (el) {
+      el.style.transition = "transform 320ms cubic-bezier(0.22, 1, 0.36, 1)"
+      el.style.transform = ""
+    }
     if (specRef.current) specRef.current.style.background = ""
   }, [])
 

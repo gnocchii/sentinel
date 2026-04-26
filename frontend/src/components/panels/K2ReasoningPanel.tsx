@@ -34,12 +34,18 @@ export default function K2ReasoningPanel() {
           </span>
         </div>
       ) : (
-        lines.map((line, i) => (
-          <div key={i} className="term-line">
-            <span className="term-tag text-cyan shrink-0">K2  </span>
-            <span className="term-msg text-dim">{line}</span>
-          </div>
-        ))
+        lines.map((line, i) => {
+          const isLast = i === lines.length - 1
+          return (
+            <div key={i} className="term-line">
+              <span className="term-tag text-cyan shrink-0">K2  </span>
+              <span className="term-msg text-dim">
+                {line}
+                {isLast && !k2Streaming && <span className="k2-cursor ml-1">▊</span>}
+              </span>
+            </div>
+          )
+        })
       )}
       {k2Streaming && lines.length > 0 && (
         <div className="term-line">

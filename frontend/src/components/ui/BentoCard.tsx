@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { useGlassHover } from "./useGlassHover"
 
 type Props = {
-  title?: string
+  title?: ReactNode
   action?: ReactNode
   children: ReactNode
   className?: string

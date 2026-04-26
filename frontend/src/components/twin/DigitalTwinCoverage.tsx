@@ -72,6 +72,7 @@ export default function DigitalTwinCoverage() {
         <directionalLight position={[-20, -10, 18]} intensity={0.4} color="#5b8fb9" />
 
         <CameraReframer center={view.center} camPos={view.camPos} />
+
         <SceneShell scene={scene} floorOpacity={0.7} showFOV={showFOV} />
 
         {showCoverage && coverage && coverage.cameras.map((cam) => (

@@ -116,13 +116,13 @@ export default function BudgetSlider() {
       <span className="text-[10.5px] font-semibold text-dim uppercase tracking-[0.16em] shrink-0">Budget</span>
 
       <div className="relative flex-1 h-9 flex items-center group">
-        <div className="relative w-full h-9 rounded-full bg-white/[0.08] overflow-hidden">
+        <div className="relative w-full h-2 rounded-full bg-white/[0.08] overflow-hidden">
           <div
             className="absolute inset-y-0 left-0 rounded-full transition-all duration-200"
             style={{
               width: `${Math.max(pctNum, 4)}%`,
               background: "#ffffff",
-              boxShadow: "0 0 18px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.6)",
+              boxShadow: "0 0 12px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.6)",
             }}
           />
         </div>

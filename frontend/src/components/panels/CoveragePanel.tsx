@@ -28,9 +28,6 @@ export default function CoveragePanel() {
             }}
           />
         </div>
-        <div className="text-[10px] text-dim tracking-tight">
-          {scene?.floor_area_m2 ?? 0} m² floor · {coveragePct >= 80 ? "well covered" : "needs work"}
-        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-px rounded-lg overflow-hidden bg-white/[0.04]">
