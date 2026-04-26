@@ -12,12 +12,14 @@ import { useEffect, useRef, useCallback, useState } from "react"
 import { useSentinel } from "@/store/sentinel"
 import { getViewConfig, applyNightVision } from "@/lib/cameraVideoMap"
 import CameraFOVView from "./CameraFOVView"
+import CameraPOVCanvas from "./CameraPOVCanvas"
+import FbxPOV from "./FbxPOV"
 import type { Camera } from "@/lib/types"
 
 const VIDEO_SRC = "/walkthrough.mp4"
 
 export default function CameraFeedsGrid() {
-  const { cameras, selectedCameraId, selectCamera, simulationHour, sceneId } = useSentinel()
+  const { cameras, selectedCameraId, selectCamera, simulationHour, sceneId, feedsFbxUrl } = useSentinel()
   const videoRef   = useRef<HTMLVideoElement>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
@@ -39,26 +41,65 @@ export default function CameraFeedsGrid() {
   }, [sceneSupportsVideo])
 
   const selectedCam = cameras.find((c) => c.id === selectedCameraId) ?? cameras[0]
-  const hasMappedCam = !!selectedCam && !!getViewConfig(selectedCam.id)
+  const hasMappedCam = !!selectedCam && !!getViewConfig(selectedCam)
+
+  // Diagnostic banner — always visible. Confirms whether the FBX upload took.
+  const debugBanner = (
+    <div className="px-3 py-1 bg-bg/80 border-b border-border text-[10px] font-mono shrink-0">
+      {feedsFbxUrl
+        ? <span className="text-green">FBX: loaded — rendering through camera POVs</span>
+        : <span className="text-amber">FBX: not uploaded — using mesh/video POV</span>}
+    </div>
+  )
 
   if (cameras.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-bg text-center p-8">
-        <div className="space-y-2 max-w-md">
-          <p className="text-text text-sm">No cameras placed yet</p>
-          <p className="text-dim text-xs">Click <span className="text-cyan">Optimize Cameras</span> below to run the K2-importance pipeline. Then come back here for the camera POV view.</p>
+      <div className="w-full h-full flex flex-col bg-bg">
+        {debugBanner}
+        <div className="flex-1 flex items-center justify-center text-center p-8">
+          <div className="space-y-2 max-w-md">
+            <p className="text-text text-sm">No cameras placed yet</p>
+            <p className="text-dim text-xs">Click <span className="text-cyan">Optimize Cameras</span> below to run the K2-importance pipeline. Then come back here for the camera POV view.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // FBX uploaded → FBX POV per camera (overrides video + synthetic paths).
+  // Calculations still come from the parsed USDZ scene.
+  if (feedsFbxUrl) {
+    console.log("[CameraFeeds] rendering FBX layout")
+    return (
+      <div className="w-full h-full flex flex-col">
+        {debugBanner}
+        <div className="flex-1 min-h-0">
+          <FbxFeedsLayout
+            cameras={cameras}
+            url={feedsFbxUrl}
+            selectedCameraId={selectedCameraId}
+            onSelect={selectCamera}
+            hour={simulationHour}
+          />
         </div>
       </div>
     )
   }
 
   if (!sceneSupportsVideo || !hasMappedCam) {
-    return <StaticFeedsLayout
-      cameras={cameras}
-      selectedCameraId={selectedCameraId}
-      onSelect={selectCamera}
-      hour={simulationHour}
-    />
+    return (
+      <div className="w-full h-full flex flex-col">
+        {debugBanner}
+        <div className="flex-1 min-h-0">
+          <StaticFeedsLayout
+            cameras={cameras}
+            selectedCameraId={selectedCameraId}
+            onSelect={selectCamera}
+            hour={simulationHour}
+          />
+        </div>
+      </div>
+    )
   }
 
   if (error) {
@@ -78,6 +119,7 @@ export default function CameraFeedsGrid() {
 
   return (
     <div className="w-full h-full flex flex-col bg-bg overflow-hidden">
+      {debugBanner}
       {/* Top: selected camera — large featured view */}
       {selectedCam && (
         <div className="flex gap-0 flex-1 min-h-0">
@@ -323,6 +365,85 @@ function LoadingOverlay({ cameraId, mini = false }: { cameraId: string; mini?: b
   )
 }
 
+// ─── FBX feeds layout (used when an FBX has been uploaded) ─────
+// Each tile renders the FBX through that camera's POV instead of the
+// synthetic mesh geometry derived from the USDZ scene.
+
+function FbxFeedsLayout({
+  cameras, url, selectedCameraId, onSelect, hour,
+}: {
+  cameras: Camera[]
+  url: string
+  selectedCameraId: string | null
+  onSelect: (id: string | null) => void
+  hour: number
+}) {
+  const selected = cameras.find((c) => c.id === selectedCameraId) ?? cameras[0]
+  const others = cameras.filter((c) => c.id !== selected.id)
+
+  return (
+    <div className="w-full h-full flex flex-col bg-bg overflow-hidden">
+      <div className="px-4 py-2 border-b border-border">
+        <p className="text-dim text-[10px]">
+          FBX POV ·
+          <span className="text-text"> placement still computed from USDZ geometry</span>
+        </p>
+      </div>
+      <div className="flex flex-1 min-h-0">
+        <div className="flex-1 p-4 min-w-0 flex flex-col">
+          <div className="flex-1 min-h-0 relative">
+            <FbxPOV camera={selected} url={url} />
+            <PovHud camera={selected} hour={hour} size="large" />
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-xs shrink-0">
+            <span className="text-cyan font-semibold">{selected.id}</span>
+            <span className="text-dim">{selected.type} · {selected.fov_h}° FOV · ${selected.cost_usd}</span>
+            <span className="text-dim">·</span>
+            <span className="text-dim font-mono">
+              ({selected.position[0].toFixed(1)}, {selected.position[1].toFixed(1)}, {selected.position[2].toFixed(1)})
+            </span>
+          </div>
+        </div>
+
+        <div className="w-56 flex flex-col gap-1 p-2 overflow-y-auto border-l border-border shrink-0">
+          {others.map((cam) => (
+            <button
+              key={cam.id}
+              onClick={() => onSelect(cam.id)}
+              className="block relative w-full aspect-video hover:brightness-125 transition-all"
+            >
+              <FbxPOV camera={cam} url={url} />
+              <PovHud camera={cam} hour={hour} size="mini" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PovHud({ camera, hour, size }: { camera: Camera; hour: number; size: "large" | "mini" }) {
+  const fontClass = size === "large" ? "text-[11px]" : "text-[8px]"
+  const ts = `${String(hour).padStart(2, "0")}:00`
+  return (
+    <div className={`absolute inset-0 p-2 pointer-events-none flex flex-col justify-between font-mono text-white/90 ${fontClass}`}>
+      <div className="flex justify-between">
+        <span className="font-semibold drop-shadow-md">{camera.id}</span>
+        <span className="opacity-80 drop-shadow-md tabular-nums">{ts}</span>
+      </div>
+      <div className="flex justify-between items-end">
+        <span className="opacity-70 drop-shadow-md">{camera.type.toUpperCase()}</span>
+        {camera.status !== "offline" && (
+          <span className="flex items-center gap-1 drop-shadow-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            {size === "large" && <span className="text-red-500 text-[10px]">REC</span>}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Static feeds layout (used when no walkthrough video is appropriate) ──
 
 function StaticFeedsLayout({
@@ -346,14 +467,11 @@ function StaticFeedsLayout({
       </div>
       <div className="flex flex-1 min-h-0">
         {/* Featured */}
-        <div className="flex-1 p-4 min-w-0">
-          <CameraFOVView
-            camera={selected}
-            width={800}
-            height={500}
-            className="w-full h-full"
-          />
-          <div className="mt-2 flex items-center gap-2 text-xs">
+        <div className="flex-1 p-4 min-w-0 flex flex-col">
+          <div className="flex-1 min-h-0 relative">
+            <CameraPOVCanvas camera={selected} hour={hour} size="large" />
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-xs shrink-0">
             <span className="text-cyan font-semibold">{selected.id}</span>
             <span className="text-dim">{selected.type} · {selected.fov_h}° FOV · ${selected.cost_usd}</span>
             <span className="text-dim">·</span>
@@ -364,14 +482,14 @@ function StaticFeedsLayout({
         </div>
 
         {/* Side grid */}
-        <div className="w-56 flex flex-col gap-1 p-2 overflow-y-auto border-l border-border">
+        <div className="w-56 flex flex-col gap-1 p-2 overflow-y-auto border-l border-border shrink-0">
           {others.map((cam) => (
             <button
               key={cam.id}
               onClick={() => onSelect(cam.id)}
-              className="block w-full hover:brightness-125 transition-all"
+              className="block w-full aspect-video hover:brightness-125 transition-all"
             >
-              <CameraFOVView camera={cam} width={208} height={117} />
+              <CameraPOVCanvas camera={cam} hour={hour} size="mini" />
             </button>
           ))}
         </div>

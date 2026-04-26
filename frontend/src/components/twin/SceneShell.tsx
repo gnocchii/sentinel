@@ -55,10 +55,17 @@ interface SceneShellProps {
   scene: Scene
   showCameras?: boolean
   showFOV?: boolean
+  showEntryPoints?: boolean
   floorOpacity?: number
 }
 
-export function SceneShell({ scene, showCameras = true, showFOV = true, floorOpacity = 0.85 }: SceneShellProps) {
+export function SceneShell({
+  scene,
+  showCameras = true,
+  showFOV = true,
+  showEntryPoints = true,
+  floorOpacity = 0.85,
+}: SceneShellProps) {
   const { cameras, selectedCameraId } = useSentinel()
   const b = scene.bounds
   const cx = (b.min[0] + b.max[0]) / 2
@@ -81,7 +88,7 @@ export function SceneShell({ scene, showCameras = true, showFOV = true, floorOpa
       {(scene.obstructions ?? []).map((obs) => <ObstructionMesh key={obs.id} obs={obs} />)}
 
       {/* Doors / windows */}
-      {scene.entry_points.map((ep) => (
+      {showEntryPoints && scene.entry_points.map((ep) => (
         <mesh key={ep.id} position={ep.position as [number, number, number]}>
           <sphereGeometry args={[0.18, 12, 12]} />
           <meshStandardMaterial

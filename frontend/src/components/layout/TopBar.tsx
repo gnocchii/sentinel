@@ -4,8 +4,9 @@ import { useSentinel } from "@/store/sentinel"
 import { uploadUsdz, fetchScene, fetchImportance, recomputeImportance, streamImportanceReasoning } from "@/lib/api"
 
 export default function TopBar() {
-  const { scene, cameras, k2Streaming, setScene, setImportance, setSceneId, sceneId, appendK2Text, clearK2Text, setK2Streaming } = useSentinel()
+  const { scene, cameras, k2Streaming, setScene, setImportance, setSceneId, sceneId, appendK2Text, clearK2Text, setK2Streaming, setFeedsFbxUrl, feedsFbxUrl } = useSentinel()
   const fileRef = useRef<HTMLInputElement>(null)
+  const fbxRef  = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [reasoning, setReasoning] = useState(false)
 
@@ -29,6 +30,13 @@ export default function TopBar() {
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleUploadFbx = (file: File) => {
+    console.log("[FBX] selected", file.name, file.size, "bytes")
+    const url = URL.createObjectURL(file)
+    setFeedsFbxUrl(url)
+    console.log("[FBX] blob URL:", url)
   }
 
   const handleReason = () => {
@@ -74,6 +82,24 @@ export default function TopBar() {
           className="px-2.5 py-1 rounded border border-cyan/30 text-cyan hover:bg-cyan/10 transition-colors disabled:opacity-50"
         >
           {uploading ? "Parsing…" : "Upload USDZ"}
+        </button>
+        <input
+          ref={fbxRef}
+          type="file"
+          accept=".fbx"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) handleUploadFbx(f)
+            e.target.value = ""  // allow re-selecting the same file
+          }}
+        />
+        <button
+          onClick={() => fbxRef.current?.click()}
+          className="px-2.5 py-1 rounded border border-cyan/30 text-cyan hover:bg-cyan/10 transition-colors"
+          title="Textured FBX rendered in Camera Feeds + Point Cloud tabs — does not affect placement calculations"
+        >
+          {feedsFbxUrl ? "FBX Loaded ✓" : "Upload FBX"}
         </button>
         <button
           onClick={handleReason}

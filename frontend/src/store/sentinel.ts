@@ -1,14 +1,20 @@
 import { create } from "zustand"
-import type { Scene, Camera, TwinTab, ThreatPath, CameraLighting, PointCloudData, ImportancePayload } from "@/lib/types"
+import type { Scene, Camera, TwinTab, ThreatPath, CameraLighting, PointCloudData, ImportancePayload, SceneAnalysis } from "@/lib/types"
 
 interface SentinelState {
   // ─── Scene ─────────────────────────────────────────────────────
   scene: Scene | null
   setScene: (s: Scene) => void
+  setSceneAnalysis: (partial: Partial<SceneAnalysis>) => void
 
   // ─── Point cloud ───────────────────────────────────────────────
   pointCloud: PointCloudData | null
   setPointCloud: (pc: PointCloudData) => void
+
+  // FBX uploaded as a blob URL — rendered in Camera Feeds + Point Cloud tabs only.
+  // Does NOT affect calculations (those still come from the parsed USDZ scene).
+  feedsFbxUrl: string | null
+  setFeedsFbxUrl: (url: string | null) => void
 
   // ─── Camera selection ──────────────────────────────────────────
   selectedCameraId: string | null
@@ -63,9 +69,23 @@ interface SentinelState {
 export const useSentinel = create<SentinelState>((set) => ({
   scene: null,
   setScene: (scene) => set({ scene, cameras: scene.cameras, coveragePct: scene.analysis.coverage_pct }),
+  setSceneAnalysis: (partial) =>
+    set((s) =>
+      s.scene
+        ? { scene: { ...s.scene, analysis: { ...s.scene.analysis, ...partial } } }
+        : {}
+    ),
 
   pointCloud: null,
   setPointCloud: (pointCloud) => set({ pointCloud }),
+
+  feedsFbxUrl: null,
+  setFeedsFbxUrl: (feedsFbxUrl) => set((s) => {
+    if (s.feedsFbxUrl && s.feedsFbxUrl !== feedsFbxUrl) {
+      try { URL.revokeObjectURL(s.feedsFbxUrl) } catch {}
+    }
+    return { feedsFbxUrl }
+  }),
 
   selectedCameraId: null,
   selectCamera: (selectedCameraId) => set({ selectedCameraId }),

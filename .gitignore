@@ -46,3 +46,7 @@ desktop.ini
 *.pth
 reconstruction/checkpoints/
 reconstruction/weights/
+
+# ─── Git backups / filter-repo artifacts ──────────────────────────
+.git.bak/
+.git-replace.txt

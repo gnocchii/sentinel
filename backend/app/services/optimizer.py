@@ -21,12 +21,14 @@ import random
 from typing import Optional
 
 import numpy as np
+from scipy.ndimage import label as _connected_label
 
 from app.services.raycast import (
     _wall_segments,
     _obstruction_aabbs,
     occlusion_mask,
     camera_fov_mask,
+    per_camera_visibility,
 )
 
 
@@ -126,11 +128,13 @@ def optimize(
         )
 
     final_score = float((covered * cell_weights).sum() / total_weight)
+    analytics = _compute_analytics(scene, cameras, importance_grid, grid_bounds, grid_resolution)
     return {
         "cameras": cameras,
         "score": final_score,
         "total_cost_usd": _cost(cameras),
         "iterations": iterations,
+        **analytics,
     }
 
 
@@ -187,6 +191,11 @@ def _build_candidates(scene: dict, step: float) -> list[dict]:
     """
     Mount points along each wall, every `step` meters, offset 0.4m inward and
     up to ceiling height. Returns list of {position, target, wall_id, normal}.
+
+    Constraint B: candidates must be inside a room polygon (Polycam scenes).
+    Without this the optimizer can "cheat" by placing a camera outside the
+    mesh and still claim coverage of room cells. avery_house (no _raw_rooms)
+    falls through unfiltered — its bbox rooms tile the scene anyway.
     """
     candidates: list[dict] = []
     bounds = scene["bounds"]
@@ -226,7 +235,34 @@ def _build_candidates(scene: dict, step: float) -> list[dict]:
                 "wall_id": w["id"],
                 "normal": [nx, ny, 0.0],
             })
+
+    # ── Constraint B: drop any candidate outside the room polygons ──
+    polygons = [r["polygon"] for r in (scene.get("_raw_rooms") or []) if r.get("polygon")]
+    if polygons:
+        before = len(candidates)
+        candidates = [
+            c for c in candidates
+            if any(_point_in_polygon(c["position"][0], c["position"][1], poly) for poly in polygons)
+        ]
+        print(f"[optimizer] polygon-inside filter: {before} → {len(candidates)} candidates")
+
     return candidates
+
+
+def _point_in_polygon(x: float, y: float, polygon: list[list[float]]) -> bool:
+    """Even-odd ray-casting test."""
+    n = len(polygon)
+    if n < 3:
+        return False
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i][0], polygon[i][1]
+        xj, yj = polygon[j][0], polygon[j][1]
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / ((yj - yi) or 1e-9) + xi):
+            inside = not inside
+        j = i
+    return inside
 
 
 # ─── greedy step ──────────────────────────────────────────────────
@@ -322,3 +358,104 @@ def _local_search(scene, cameras, locked, candidates, cells_xy, cell_weights, co
             covered = new_covered
             current_score = new_score
     return cameras, covered
+
+
+
+# ─── post-optimization analytics ──────────────────────────────────
+# Powers the LeftRail CoveragePanel's entry-points / blind-spots / overlap-zones.
+# Recomputed from the final camera list rather than carried out of the greedy loop
+# so refine_iters / locked cameras are reflected correctly.
+
+BLIND_SPOT_IMPORTANCE_THRESHOLD = 0.4   # cells below this are "intentionally uncovered"
+BLIND_SPOT_MIN_AREA_M2          = 0.5   # smaller patches are noise, not actionable
+
+
+def _compute_analytics(scene, cameras, importance_grid, grid_bounds, grid_resolution):
+    """Returns {entry_points_covered, entry_points_total, blind_spots, overlap_zones}."""
+    entry_points_total = len(scene.get("entry_points", []))
+    if not cameras:
+        return {
+            "entry_points_covered": 0,
+            "entry_points_total":   entry_points_total,
+            "blind_spots":          [],
+            "overlap_zones":        0,
+        }
+
+    H, W = importance_grid.shape
+    cells_xy, _ = _flatten_grid(importance_grid, grid_bounds, grid_resolution)
+    vis = per_camera_visibility(scene, cameras, cells_xy)             # (n_cam, H*W)
+    coverage_count = vis.sum(axis=0).reshape(H, W)
+    coverage_grid  = coverage_count > 0
+
+    return {
+        "entry_points_covered": _entry_points_covered(scene, cameras),
+        "entry_points_total":   entry_points_total,
+        "blind_spots":          _find_blind_spots(importance_grid, coverage_grid, grid_bounds, grid_resolution),
+        "overlap_zones":        _count_overlap_regions(coverage_count),
+    }
+
+
+def _entry_points_covered(scene: dict, cameras: list[dict]) -> int:
+    """Count entry points where at least one camera has FOV + clear LoS."""
+    entries = scene.get("entry_points", [])
+    if not entries:
+        return 0
+
+    segments = _wall_segments(scene)
+    aabbs    = _obstruction_aabbs(scene)
+    ep_3d    = np.array([ep["position"] for ep in entries], dtype=float)
+    ep_xy    = ep_3d[:, :2]
+
+    covered = np.zeros(len(entries), dtype=bool)
+    for cam in cameras:
+        cam_pos = np.array(cam["position"], dtype=float)
+        target  = np.array(cam["target"],   dtype=float)
+        fov     = camera_fov_mask(cam_pos, target, cam["fov_h"], cam["fov_v"], ep_3d)
+        idx     = np.where(fov)[0]
+        if len(idx) == 0:
+            continue
+        vis = occlusion_mask(cam_pos[:2], ep_xy[idx], segments, aabbs)
+        covered[idx[vis]] = True
+    return int(covered.sum())
+
+
+def _find_blind_spots(importance_grid, coverage_grid, bounds, resolution) -> list[dict]:
+    """
+    Connected uncovered regions where importance > threshold.
+    Severity scales with the region's average importance.
+    """
+    bad = (importance_grid > BLIND_SPOT_IMPORTANCE_THRESHOLD) & (~coverage_grid)
+    labels, n = _connected_label(bad)
+    cell_area = resolution * resolution
+
+    out: list[dict] = []
+    for i in range(1, n + 1):
+        mask = labels == i
+        area = float(mask.sum()) * cell_area
+        if area < BLIND_SPOT_MIN_AREA_M2:
+            continue
+        rows, cols = np.where(mask)
+        # Cell centers in world coords. importance_grid is (rows=Y, cols=X) starting at bounds.min.
+        cx = bounds["min"][0] + (cols.mean() + 0.5) * resolution
+        cy = bounds["min"][1] + (rows.mean() + 0.5) * resolution
+        avg_imp = float(importance_grid[mask].mean())
+        severity = "high" if avg_imp > 0.7 else "medium" if avg_imp > 0.5 else "low"
+        out.append({
+            "id":       f"bs_{len(out) + 1}",
+            "position": [round(cx, 2), round(cy, 2), 0.0],
+            "area_m2":  round(area, 2),
+            "reason":   f"Uncovered importance-{avg_imp:.2f} region",
+            "severity": severity,
+        })
+    # Sort biggest/most severe first so the panel shows the worst at the top
+    out.sort(key=lambda b: (b["severity"] != "high", b["severity"] != "medium", -b["area_m2"]))
+    return out
+
+
+def _count_overlap_regions(coverage_count: np.ndarray) -> int:
+    """Number of contiguous regions where 2+ cameras see the same cell."""
+    overlap = coverage_count >= 2
+    if not overlap.any():
+        return 0
+    _, n = _connected_label(overlap)
+    return int(n)

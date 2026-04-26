@@ -8,6 +8,7 @@ import type {
   ScanStatus,
   ImportancePayload,
   Coverage3DPayload,
+  BlindSpot,
 } from "./types"
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
@@ -62,6 +63,7 @@ export const fetchScanStatus = (scanId: string) =>
 export const fetchScanPointCloud = (scanId: string) =>
   get<PointCloudData>(`/scans/${scanId}/pointcloud`)
 
+
 // ─── Cameras ─────────────────────────────────────────────────────
 
 export const optimizeCameras = (sceneId: string, budgetUsd: number, lockedIds: string[] = []) =>
@@ -101,6 +103,10 @@ export const optimizeImportance = (sceneId: string, budgetUsd: number, maxCamera
     score: number
     total_cost_usd: number
     iterations: { camera_id: string; type: string; position: [number, number, number]; marginal_gain: number; score: number; cost_usd: number }[]
+    entry_points_covered: number
+    entry_points_total: number
+    blind_spots: BlindSpot[]
+    overlap_zones: number
     scores: { rooms: Record<string, { score: number; inferred_type: string; reason: string }>, doors: Record<string, { score: number; reason: string }> }
   }>("/cameras/optimize-importance", { scene_id: sceneId, budget_usd: budgetUsd, max_cameras: maxCameras, refine_iters: refineIters })
 

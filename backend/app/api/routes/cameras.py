@@ -59,6 +59,10 @@ async def optimize_importance(req: ImportanceOptimizeRequest):
         "score": result["score"],
         "total_cost_usd": result["total_cost_usd"],
         "iterations": result["iterations"],
+        "entry_points_covered": result["entry_points_covered"],
+        "entry_points_total":   result["entry_points_total"],
+        "blind_spots":          result["blind_spots"],
+        "overlap_zones":        result["overlap_zones"],
         "scores": {
             "rooms": scores.get("rooms", {}),
             "doors": scores.get("doors", {}),

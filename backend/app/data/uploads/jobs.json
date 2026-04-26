@@ -68,5 +68,19 @@
     "filename": "Untitled_Scan_11_21_44.ply",
     "size_bytes": 25139943,
     "pointcloud_path": "/app/app/data/uploads/processed/8e04b4859ccb4a0aa45680fe8c3b51f3.json"
+  },
+  "ada4e1e8055642bc8fac7150e00ef8c4": {
+    "scan_id": "ada4e1e8055642bc8fac7150e00ef8c4",
+    "status": "done",
+    "filename": "4_25_2026.ply",
+    "size_bytes": 26615730,
+    "pointcloud_path": "C:\\Users\\Suhaa\\Downloads\\Suhaan CS Projects\\hacktech\\backend\\app\\data\\uploads\\processed\\ada4e1e8055642bc8fac7150e00ef8c4.json"
+  },
+  "90ec13561cc64f798aab7df7aad7e269": {
+    "scan_id": "90ec13561cc64f798aab7df7aad7e269",
+    "status": "done",
+    "filename": "4_25_2026.ply",
+    "size_bytes": 26615730,
+    "pointcloud_path": "C:\\Users\\Suhaa\\Downloads\\Suhaan CS Projects\\hacktech\\backend\\app\\data\\uploads\\processed\\90ec13561cc64f798aab7df7aad7e269.json"
   }
 }

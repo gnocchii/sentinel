@@ -17,7 +17,7 @@ function logToBudget(t: number) {
 export default function BudgetSlider() {
   const {
     budget, setBudget,
-    sceneId, setCameras, setCoveragePct,
+    sceneId, setCameras, setCoveragePct, setSceneAnalysis,
     importanceScore, setImportanceScore,
     optimizing, setOptimizing,
   } = useSentinel()
@@ -34,13 +34,20 @@ export default function BudgetSlider() {
       setCameras(result.cameras)
       setCoveragePct(result.score * 100)
       setImportanceScore(result.score)
+      setSceneAnalysis({
+        entry_points_covered: result.entry_points_covered,
+        entry_points_total:   result.entry_points_total,
+        blind_spots:          result.blind_spots,
+        overlap_zones:        result.overlap_zones,
+        total_cost_usd:       result.total_cost_usd,
+      })
     } catch (err) {
       console.error("optimize failed", err)
       alert(`Optimize failed: ${err}`)
     } finally {
       setOptimizing(false)
     }
-  }, [sceneId, budget, optimizing, setCameras, setCoveragePct, setImportanceScore, setOptimizing])
+  }, [sceneId, budget, optimizing, setCameras, setCoveragePct, setImportanceScore, setSceneAnalysis, setOptimizing])
 
   const pct = budgetToLog(budget)
 
