@@ -52,7 +52,13 @@ export default function CameraPOVCanvas({ camera, hour, size = "large" }: Props)
   const { scene } = useSentinel()
   if (!scene) return <div className="w-full h-full bg-black" />
 
-  const startPos = adjustedPosition(camera)
+  const midZ = (scene.bounds.min[2] + scene.bounds.max[2]) / 2
+  const camAtMid: Camera = {
+    ...camera,
+    position: [camera.position[0], camera.position[1], midZ],
+  }
+
+  const startPos = adjustedPosition(camAtMid)
 
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
@@ -71,7 +77,7 @@ export default function CameraPOVCanvas({ camera, hour, size = "large" }: Props)
         <directionalLight position={[10, 10, 15]} intensity={0.5} color="#fff5e0" />
         <directionalLight position={[-10, -10, 12]} intensity={0.35} color="#e8eef8" />
 
-        <POVCameraSetup cam={camera} />
+        <POVCameraSetup cam={camAtMid} />
         <SceneShell
           scene={scene}
           showCameras={false}

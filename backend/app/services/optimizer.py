@@ -190,13 +190,25 @@ def _greedy_pick(precomputed, weights, covered, budget_remaining, exclude):
 # ─── candidates ───────────────────────────────────────────────────
 
 
+MIN_WALL_CLEARANCE = 0.25  # candidate must be at least this far from every wall
+
+
+def _dist_to_segment(px: float, py: float, x0: float, y0: float, x1: float, y1: float) -> float:
+    """Minimum distance from point (px, py) to line segment (x0,y0)→(x1,y1)."""
+    dx, dy = x1 - x0, y1 - y0
+    seg_len_sq = dx * dx + dy * dy
+    if seg_len_sq < 1e-12:
+        return math.hypot(px - x0, py - y0)
+    t = max(0.0, min(1.0, ((px - x0) * dx + (py - y0) * dy) / seg_len_sq))
+    return math.hypot(px - (x0 + t * dx), py - (y0 + t * dy))
+
+
 def _build_candidates(scene: dict, step: float) -> list[dict]:
     """
     Mount points along each wall, every `step` meters. For each wall we try
     BOTH inward-normal directions (toward each room face), then keep only
-    candidates that fall inside one of the room polygons. This handles
-    non-convex Polycam scenes where the previous "flip toward bbox centroid"
-    heuristic could put candidates outside the building.
+    candidates that fall inside one of the room polygons AND are at least
+    MIN_WALL_CLEARANCE meters from every wall segment.
     """
     candidates: list[dict] = []
     bounds = scene["bounds"]
@@ -206,10 +218,25 @@ def _build_candidates(scene: dict, step: float) -> list[dict]:
 
     def inside_any_room(x: float, y: float) -> bool:
         if not polygons:
-            return True  # no polygon data → keep prior behavior
+            return True
         return any(_point_in_polygon(x, y, poly) for poly in polygons)
 
     walls = scene.get("walls", [])
+
+    # Pre-extract wall endpoints once for the clearance check
+    wall_segments = [
+        (w["from"][0], w["from"][1], w["to"][0], w["to"][1])
+        for w in walls
+    ]
+
+    def clear_of_all_walls(x: float, y: float, source_wall_id: str) -> bool:
+        for w, seg in zip(walls, wall_segments):
+            if w["id"] == source_wall_id:
+                continue  # skip the wall this candidate is mounted on
+            if _dist_to_segment(x, y, *seg) < MIN_WALL_CLEARANCE:
+                return False
+        return True
+
     for w in walls:
         x0, y0 = w["from"]
         x1, y1 = w["to"]
@@ -217,7 +244,6 @@ def _build_candidates(scene: dict, step: float) -> list[dict]:
         if length < 0.5:
             continue
         dx, dy = (x1 - x0) / length, (y1 - y0) / length
-        # Two perpendicular normals — try both, keep whichever falls inside a room
         normals = [(-dy, dx), (dy, -dx)]
 
         n_steps = max(1, int(length / step))
@@ -234,6 +260,8 @@ def _build_candidates(scene: dict, step: float) -> list[dict]:
                 if not (bounds["min"][1] <= my <= bounds["max"][1]):
                     continue
                 if not inside_any_room(mx, my):
+                    continue
+                if not clear_of_all_walls(mx, my, w["id"]):
                     continue
                 target = [mx + nx * 4.0, my + ny * 4.0, 0.0]
                 candidates.append({

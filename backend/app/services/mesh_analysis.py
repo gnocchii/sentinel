@@ -12,6 +12,7 @@ Pipeline:
 
 All units are metres.  Coordinate axes: X=east, Y=north, Z=up.
 """
+from __future__ import annotations
 
 from __future__ import annotations
 import io

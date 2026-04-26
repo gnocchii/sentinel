@@ -28,7 +28,7 @@ export default function FbxModel({ url, scale = 1, yUpToZUp = true, autoFit = tr
     const c = fbx.clone(true)
     // Apply rotation directly on the clone (so subsequent bbox math is in
     // post-rotation space). We won't pass `rotation` as a prop below.
-    if (yUpToZUp) c.rotation.set(-Math.PI / 2, 0, 0)
+    if (yUpToZUp) c.rotation.set(Math.PI / 2, 0, 0)
     c.updateMatrixWorld(true)
 
     // Diagnostic: count meshes, materials with valid texture maps, and

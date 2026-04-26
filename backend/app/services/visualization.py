@@ -11,6 +11,7 @@ Functions:
 All camera placements use the same dict schema K2 outputs:
   { position_xyz, pan_deg, tilt_deg, fov_h_deg, fov_v_deg, id, type }
 """
+from __future__ import annotations
 
 import math
 import numpy as np

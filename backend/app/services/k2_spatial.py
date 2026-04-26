@@ -6,6 +6,7 @@ and streams camera placement recommendations from K2 Think V2.
 
 K2 API is OpenAI-compatible. Returns structured JSON inside <placements>...</placements>.
 """
+from __future__ import annotations
 
 import json
 import re
