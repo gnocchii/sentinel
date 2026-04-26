@@ -100,6 +100,9 @@ export interface Camera {
   hdr_capable: boolean
   status: CameraStatus
   locked: boolean
+  // Inward-pointing wall normal (XY in scene space, Z=0). Used by the renderer
+  // to attach a wall-mount plate. Optional for legacy / hand-placed cameras.
+  mount_normal?: Vec3
 }
 
 // ─── Point cloud ─────────────────────────────────────────────────

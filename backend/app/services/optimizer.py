@@ -66,12 +66,27 @@ def optimize(
     """
     locked_cameras = locked_cameras or []
 
-    # Sample importance + cell positions, optionally subsampled for speed
-    cells_xy, cell_weights = _flatten_grid(importance_grid, grid_bounds, grid_resolution)
+    # Sample cell positions. The importance grid leaks into the void OUTSIDE
+    # any room polygon (parser quirk), which previously made 75% of "scored"
+    # cells unreachable phantom space. Filter to cells actually inside a room
+    # polygon so the score denominator reflects real interior, not exterior
+    # void. Importance weighting is preserved — cells in a kitchen still count
+    # more than cells in a closet, but ALL cells are at least real.
+    cells_xy, raw_weights = _flatten_grid(importance_grid, grid_bounds, grid_resolution)
+    in_scene = raw_weights > 0
+    cells_xy = cells_xy[in_scene]
+    cell_weights = raw_weights[in_scene]
+
+    polygons = [r["polygon"] for r in (scene.get("_raw_rooms") or []) if r.get("polygon")]
+    if polygons:
+        in_room = np.array([
+            any(_point_in_polygon(x, y, poly) for poly in polygons)
+            for x, y in cells_xy
+        ])
+        cells_xy = cells_xy[in_room]
+        cell_weights = cell_weights[in_room]
     if len(cells_xy) > max_cells:
-        # stratified subsample weighted by importance (more samples in important regions)
         rng = np.random.default_rng(0)
-        # Sample uniformly to stay representative; importance is multiplied later
         idx = rng.choice(len(cells_xy), size=max_cells, replace=False)
         cells_xy = cells_xy[idx]
         cell_weights = cell_weights[idx]
@@ -87,21 +102,38 @@ def optimize(
     # Pre-compute visibility mask for every (candidate, type) up front
     segments = _wall_segments(scene)
     aabbs = _obstruction_aabbs(scene)
-    precomputed = _precompute_candidate_visibility(scene, candidates, cells_xy, segments, aabbs)
+
+    # Entry points are kept around for analytics + retarget tracking, but the
+    # explicit door bonus is OFF: the greedy now just maximizes importance-
+    # weighted floor coverage. Doors are part of the floor; they get covered
+    # incidentally when the optimizer spreads cameras to cover all rooms.
+    entry_list = scene.get("entry_points", []) or []
+    entry_pts_xy = (
+        np.array([ep["position"][:2] for ep in entry_list], dtype=float)
+        if entry_list else np.zeros((0, 2), dtype=float)
+    )
+    door_bonus_per_entry = 0.0
+
+    precomputed = _precompute_candidate_visibility(
+        scene, candidates, cells_xy, segments, aabbs, entry_pts_xy,
+    )
 
     cameras = list(locked_cameras)
     # Reset camera-id counter per call so IDs are deterministic
     _make_camera.counter = []  # type: ignore[attr-defined]
 
     covered = _coverage_mask(scene, cameras, cells_xy)
+    entry_covered = _entry_coverage_mask(scene, cameras, entry_pts_xy, segments, aabbs)
 
     iterations: list[dict] = []
     spent = _cost(cameras)
     used_keys: set = set()
+    placed_cand_indices: list[int] = []  # parallel to cameras[len(locked_cameras):]
 
     while len(cameras) < max_cameras:
         best = _greedy_pick(
-            precomputed, cell_weights, covered,
+            precomputed, cell_weights, covered, entry_covered,
+            door_bonus_per_entry,
             budget_remaining=budget_usd - spent,
             exclude=used_keys,
         )
@@ -109,7 +141,9 @@ def optimize(
             break
         cam = _make_camera(candidates[best["cand_idx"]], best["ctype"], idx=len(cameras))
         cameras.append(cam)
+        placed_cand_indices.append(best["cand_idx"])
         covered |= best["mask"]
+        entry_covered |= best["entry_mask"]
         spent += cam["cost_usd"]
         used_keys.add((best["cand_idx"], best["ctype"]["type"]))
         score_now = float((covered * cell_weights).sum() / total_weight)
@@ -128,6 +162,30 @@ def optimize(
             cells_xy, cell_weights, covered, refine_iters,
         )
 
+    # Cosmetic retarget: replace each optimizer-placed camera's wall-normal
+    # default target with the lookAt that maximizes frame fill, biased toward
+    # any entry points within reach. The yaw search centers on the candidate's
+    # ORIGINAL aim direction (wall normal for plain candidates, door direction
+    # for door-aimed candidates added by _augment_with_door_aimed_candidates).
+    # Locked cameras keep their user-supplied target.
+    floor_z = float(scene["bounds"]["min"][2])
+    n_locked = len(locked_cameras)
+    for cam, cand_idx in zip(cameras[n_locked:], placed_cand_indices):
+        cand = candidates[cand_idx]
+        cam_pos = np.array(cam["position"], dtype=float)
+        cand_target = np.array(cand["target"], dtype=float)
+        base_dir = cand_target[:2] - cam_pos[:2]
+        if np.linalg.norm(base_dir) < 1e-6:
+            base_dir = np.array(cand["normal"][:2], dtype=float)
+        cam["target"] = _refine_demo_target(
+            cam_pos,
+            base_dir,
+            cam["fov_h"], cam["fov_v"],
+            cells_xy, cell_weights, segments, aabbs, floor_z,
+            entry_pts_xy=entry_pts_xy,
+            door_bonus_per_entry=door_bonus_per_entry,
+        )
+
     final_score = float((covered * cell_weights).sum() / total_weight)
     analytics = _compute_analytics(scene, cameras, importance_grid, grid_bounds, grid_resolution)
     return {
@@ -139,29 +197,93 @@ def optimize(
     }
 
 
-def _precompute_candidate_visibility(scene, candidates, cells_xy, segments, aabbs):
+# Doors sit ON wall segments because the parser doesn't cut walls at openings,
+# and stacked wall surfaces (interior/exterior face of a thick wall) lie between
+# the camera and the door. Pulling the test point this far toward the camera
+# steps past those parser-artifact walls without affecting real obstructions.
+_DOOR_INFLATE_TOWARD_CAM = 0.6
+
+
+def _doors_toward_cam(cam_xy: np.ndarray, doors_xy: np.ndarray) -> np.ndarray:
+    """Move each door point _DOOR_INFLATE_TOWARD_CAM meters toward cam_xy."""
+    if len(doors_xy) == 0:
+        return doors_xy
+    delta = cam_xy[None, :] - doors_xy
+    norms = np.linalg.norm(delta, axis=1, keepdims=True) + 1e-9
+    step = np.minimum(norms.squeeze(-1), _DOOR_INFLATE_TOWARD_CAM)
+    return doors_xy + (delta / norms) * step[:, None]
+
+
+def _precompute_candidate_visibility(scene, candidates, cells_xy, segments, aabbs, entry_pts_xy):
     """
-    For each (candidate, camera_type), compute the boolean visibility mask once.
-    Returns list of dicts: { cand_idx, ctype, mask }.
+    For each (candidate, camera_type), compute the boolean visibility mask
+    over the floor cells AND the entry points (doors/windows). Returns list
+    of dicts: { cand_idx, ctype, mask, entry_mask }.
+
+    The default candidate target is "4m straight off the wall" — useless for
+    deciding what a camera CAN see. So we test against a wider effective FOV
+    (clamped to 170°) so the precomputed mask captures everything the camera
+    could see from this position, regardless of which exact yaw the retarget
+    pass eventually picks.
     """
     out: list[dict] = []
-    cells_3d = np.column_stack([cells_xy, np.full(len(cells_xy), 1.2)])
+    cells_3d   = np.column_stack([cells_xy, np.full(len(cells_xy), 1.2)])
+    entry_3d   = (
+        np.column_stack([entry_pts_xy, np.full(len(entry_pts_xy), 1.0)])
+        if len(entry_pts_xy) else np.zeros((0, 3), dtype=float)
+    )
     for cand_idx, cand in enumerate(candidates):
         cam_xy = np.array(cand["position"][:2])
         cam_pos_3d = np.array(cand["position"], dtype=float)
         target_3d = np.array(cand["target"], dtype=float)
         for ctype in CAMERA_TYPES:
-            fov = camera_fov_mask(cam_pos_3d, target_3d, ctype["fov_h"], ctype["fov_v"], cells_3d)
+            # Use a generous "what the camera could see from this spot" FOV so
+            # the greedy isn't punished for picks that need a yaw rotation
+            # later. Real fov is enforced once the retarget pass picks the aim.
+            effective_fov_h = min(170.0, ctype["fov_h"] * 1.6)
+            effective_fov_v = min(150.0, ctype["fov_v"] * 1.6)
+
+            fov = camera_fov_mask(cam_pos_3d, target_3d, effective_fov_h, effective_fov_v, cells_3d)
             idx = np.where(fov)[0]
             mask = np.zeros(len(cells_xy), dtype=bool)
             if len(idx):
                 vis = occlusion_mask(cam_xy, cells_xy[idx], segments, aabbs)
                 mask[idx[vis]] = True
-            out.append({"cand_idx": cand_idx, "ctype": ctype, "mask": mask})
+
+            entry_mask = np.zeros(len(entry_pts_xy), dtype=bool)
+            if len(entry_3d):
+                e_fov = camera_fov_mask(cam_pos_3d, target_3d, effective_fov_h, effective_fov_v, entry_3d)
+                e_idx = np.where(e_fov)[0]
+                if len(e_idx):
+                    inflated = _doors_toward_cam(cam_xy, entry_pts_xy[e_idx])
+                    e_vis = occlusion_mask(cam_xy, inflated, segments, aabbs)
+                    entry_mask[e_idx[e_vis]] = True
+
+            out.append({"cand_idx": cand_idx, "ctype": ctype, "mask": mask, "entry_mask": entry_mask})
     return out
 
 
-def _greedy_pick(precomputed, weights, covered, budget_remaining, exclude):
+def _entry_coverage_mask(scene, cameras, entry_pts_xy, segments, aabbs):
+    """Boolean mask over entry_pts_xy: which doors are currently covered by any camera."""
+    out = np.zeros(len(entry_pts_xy), dtype=bool)
+    if not cameras or len(entry_pts_xy) == 0:
+        return out
+    entry_3d = np.column_stack([entry_pts_xy, np.full(len(entry_pts_xy), 1.0)])
+    for cam in cameras:
+        cam_pos = np.array(cam["position"], dtype=float)
+        target  = np.array(cam["target"], dtype=float)
+        fov = camera_fov_mask(cam_pos, target, cam["fov_h"], cam["fov_v"], entry_3d)
+        idx = np.where(fov)[0]
+        if len(idx) == 0:
+            continue
+        inflated = _doors_toward_cam(cam_pos[:2], entry_pts_xy[idx])
+        vis = occlusion_mask(cam_pos[:2], inflated, segments, aabbs)
+        out[idx[vis]] = True
+    return out
+
+
+def _greedy_pick(precomputed, weights, covered, entry_covered, door_bonus_per_entry,
+                 budget_remaining, exclude):
     best = None
     best_score = 0.0
     for entry in precomputed:
@@ -169,8 +291,13 @@ def _greedy_pick(precomputed, weights, covered, budget_remaining, exclude):
             continue
         if entry["ctype"]["cost_usd"] > budget_remaining:
             continue
-        new = entry["mask"] & ~covered
-        gain = float((new * weights).sum())
+        new_floor = entry["mask"] & ~covered
+        floor_gain = float((new_floor * weights).sum())
+
+        new_doors = entry["entry_mask"] & ~entry_covered
+        door_gain = float(new_doors.sum()) * door_bonus_per_entry
+
+        gain = floor_gain + door_gain
         if gain <= 0:
             continue
         score = gain / entry["ctype"]["cost_usd"]
@@ -180,6 +307,7 @@ def _greedy_pick(precomputed, weights, covered, budget_remaining, exclude):
                 "cand_idx": entry["cand_idx"],
                 "ctype": entry["ctype"],
                 "mask": entry["mask"],
+                "entry_mask": entry["entry_mask"],
                 "gain": gain,
             }
     return best
@@ -188,7 +316,8 @@ def _greedy_pick(precomputed, weights, covered, budget_remaining, exclude):
 # ─── candidates ───────────────────────────────────────────────────
 
 
-MIN_WALL_CLEARANCE = 0.25  # candidate must be at least this far from every wall
+MIN_WALL_CLEARANCE = 0.08  # candidate must be at least this far from non-source walls
+                           # (small enough that wall-mounted candidates near corners are accepted)
 MAX_CLOSURE_GAP    = 4.0   # only close perimeter gaps smaller than this (m)
 
 
@@ -296,10 +425,10 @@ def _build_candidates(scene: dict, step: float, virtual_walls: Optional[list[dic
         return True
 
     for w in walls:
-        x0, y0 = w["from"]
-        x1, y1 = w["to"]
+        x0, y0, *_ = w["from"]  # tolerate 2D ([x,y]) or 3D ([x,y,z]) wall coords
+        x1, y1, *_ = w["to"]
         length = math.hypot(x1 - x0, y1 - y0)
-        if length < 0.5:
+        if length < 0.3:  # short walls (door jambs etc.) still get one mount point
             continue
         dx, dy = (x1 - x0) / length, (y1 - y0) / length
         nx, ny = -dy, dx
@@ -310,11 +439,15 @@ def _build_candidates(scene: dict, step: float, virtual_walls: Optional[list[dic
         if (nx * (cx - wall_mid_x) + ny * (cy - wall_mid_y)) < 0:
             nx, ny = -nx, -ny
 
-        n_steps = max(1, int(length / 0.5))
+        # Mount the camera body close to the wall surface (12 cm) so it reads as
+        # wall-mounted in the digital twin instead of floating mid-room. The
+        # 5 cm wall-skip in raycast.occlusion_mask handles the close-to-wall case.
+        # Denser sampling (every 0.3 m) so the candidate set covers small rooms.
+        n_steps = max(1, int(length / 0.3))
         for i in range(n_steps + 1):
             t = i / n_steps if n_steps > 0 else 0.5
-            mx = x0 + t * (x1 - x0) + nx * 0.6
-            my = y0 + t * (y1 - y0) + ny * 0.6
+            mx = x0 + t * (x1 - x0) + nx * 0.12
+            my = y0 + t * (y1 - y0) + ny * 0.12
             if not (bounds["min"][0] <= mx <= bounds["max"][0]):
                 continue
             if not (bounds["min"][1] <= my <= bounds["max"][1]):
@@ -331,17 +464,72 @@ def _build_candidates(scene: dict, step: float, virtual_walls: Optional[list[dic
                 "normal": [nx, ny, 0.0],
             })
 
-    # ── Constraint B: drop any candidate outside the room polygons ──
-    polygons = [r["polygon"] for r in (scene.get("_raw_rooms") or []) if r.get("polygon")]
-    if polygons:
-        before = len(candidates)
-        candidates = [
-            c for c in candidates
-            if any(_point_in_polygon(c["position"][0], c["position"][1], poly) for poly in polygons)
-        ]
-        print(f"[optimizer] polygon-inside filter: {before} → {len(candidates)} candidates")
-
+    # Polygon filter REMOVED. Original intent (prevent cameras "outside the
+    # mesh" from cheating through walls) is already enforced by occlusion_mask:
+    # a camera in the void can't raycast through walls. The polygon filter was
+    # killing 50% of reachable cells because wall-mount candidates 0.12 m off
+    # the wall fall just outside the polygon edge.
     return candidates
+
+
+_DOOR_AIM_RADIUS = 12.0  # consider candidates within this distance of the door
+_DOOR_AIMS_PER_DOOR = 10  # how many door-aimed candidates to add per door
+
+
+def _augment_with_door_aimed_candidates(
+    candidates: list[dict],
+    entry_pts_xy: np.ndarray,
+    segments: np.ndarray,
+    aabbs: np.ndarray,
+) -> list[dict]:
+    """
+    For every door, find the nearest wall-mount candidates that have line-of-sight
+    to it (using the camera-side door inflation), and add door-aimed copies whose
+    target is the door itself. The greedy can then pick a position+aim pair that
+    explicitly watches a particular door — vs. relying on the cosmetic retarget
+    to choose a yaw that happens to include it.
+    """
+    if not candidates or len(entry_pts_xy) == 0:
+        return candidates
+
+    cand_pos = np.array([c["position"][:2] for c in candidates])
+    out: list[dict] = list(candidates)
+    seen_keys: set = {(tuple(c["position"]), tuple(c["target"])) for c in candidates}
+
+    for door_xy in entry_pts_xy:
+        d_xy = np.array([door_xy[0], door_xy[1]])
+        # Sort candidates by distance to door
+        dists = np.linalg.norm(cand_pos - d_xy[None, :], axis=1)
+        order = np.argsort(dists)
+
+        added = 0
+        for cand_idx in order:
+            if dists[cand_idx] > _DOOR_AIM_RADIUS:
+                break
+            cand = candidates[cand_idx]
+            cam_xy = cand_pos[cand_idx]
+            inflated = _doors_toward_cam(cam_xy, d_xy[None, :])
+            vis = occlusion_mask(cam_xy, inflated, segments, aabbs)
+            if not vis.any():
+                continue
+            # New target: the door itself (z=1.0 floor-ish — height set by retarget pass anyway)
+            new_target = [round(float(door_xy[0]), 2), round(float(door_xy[1]), 2), 1.0]
+            key = (tuple(cand["position"]), tuple(new_target))
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            out.append({
+                "position": list(cand["position"]),
+                "target": new_target,
+                "wall_id": cand["wall_id"],
+                "normal": list(cand["normal"]),
+            })
+            added += 1
+            if added >= _DOOR_AIMS_PER_DOOR:
+                break
+
+    print(f"[optimizer] door-aimed augment: {len(candidates)} → {len(out)} candidates")
+    return out
 
 
 def _point_in_polygon(x: float, y: float, polygon: list[list[float]]) -> bool:
@@ -360,7 +548,177 @@ def _point_in_polygon(x: float, y: float, polygon: list[list[float]]) -> bool:
     return inside
 
 
+def _point_to_polygon_distance(x: float, y: float, polygon: list[list[float]]) -> float:
+    """Min distance from point (x, y) to any edge of the polygon."""
+    n = len(polygon)
+    if n < 2:
+        return float("inf")
+    best = float("inf")
+    for i in range(n):
+        x0, y0 = polygon[i][0], polygon[i][1]
+        x1, y1 = polygon[(i + 1) % n][0], polygon[(i + 1) % n][1]
+        d = _dist_to_segment(x, y, x0, y0, x1, y1)
+        if d < best:
+            best = d
+    return best
+
+
 # ─── greedy step ──────────────────────────────────────────────────
+
+
+_DEMO_YAW_SAMPLES_DEG = (-60, -45, -30, -15, 0, 15, 30, 45, 60)
+_DEMO_AIM_DISTANCE = 4.0
+_DEMO_AIM_FLOOR_OFFSET = 1.0  # torso height above floor → ~20° tilt-down from a 2.7m mount
+_DEMO_MIN_FRAME_DEPTH = 2.0   # below this, a wall is filling the frame at point-blank range
+_DEMO_FRAME_RAY_OFFSETS_DEG = (-20, -10, 0, 10, 20)  # central FOV samples for "depth"
+
+
+def _ray_seg_distances(cam_xy: np.ndarray, dir_xy: np.ndarray, segs: np.ndarray) -> float:
+    """
+    Distance from cam_xy to first wall/AABB-edge intersection along dir_xy.
+    Returns +inf if the ray hits nothing. segs shape: (N, 4) = [x0, y0, x1, y1].
+    """
+    if len(segs) == 0:
+        return float("inf")
+    cx, cy = float(cam_xy[0]), float(cam_xy[1])
+    dx, dy = float(dir_xy[0]), float(dir_xy[1])
+    sx0, sy0 = segs[:, 0], segs[:, 1]
+    sx1, sy1 = segs[:, 2], segs[:, 3]
+    sdx, sdy = sx1 - sx0, sy1 - sy0
+    denom = dx * sdy - dy * sdx
+    with np.errstate(divide="ignore", invalid="ignore"):
+        safe = np.where(np.abs(denom) > 1e-9, denom, np.nan)
+        t_ray = ((sx0 - cx) * sdy - (sy0 - cy) * sdx) / safe
+        s_seg = ((sx0 - cx) * dy  - (sy0 - cy) * dx) / safe
+    valid = (t_ray > 0.05) & (s_seg >= 0.0) & (s_seg <= 1.0)
+    if not valid.any():
+        return float("inf")
+    return float(np.where(valid, t_ray, np.inf).min())
+
+
+def _build_blocker_segments(segments: np.ndarray, aabbs: np.ndarray) -> np.ndarray:
+    """Combine wall segments and AABB perimeter edges into one (N, 4) array."""
+    parts = [segments] if len(segments) else []
+    if len(aabbs) > 0:
+        x0, y0, x1, y1 = aabbs[:, 0], aabbs[:, 1], aabbs[:, 2], aabbs[:, 3]
+        parts.append(np.column_stack([
+            np.concatenate([x0, x1, x1, x0]),
+            np.concatenate([y0, y0, y1, y1]),
+            np.concatenate([x1, x1, x0, x0]),
+            np.concatenate([y0, y1, y1, y0]),
+        ]))
+    if not parts:
+        return np.zeros((0, 4), dtype=float)
+    return np.vstack(parts)
+
+
+def _refine_demo_target(
+    cam_pos: np.ndarray,
+    base_direction: np.ndarray,
+    fov_h: float,
+    fov_v: float,
+    cells_xy: np.ndarray,
+    cell_weights: np.ndarray,
+    segments: np.ndarray,
+    aabbs: np.ndarray,
+    floor_z: float,
+    entry_pts_xy: np.ndarray = None,
+    door_bonus_per_entry: float = 0.0,
+) -> list:
+    """
+    Pick the lookAt that maximizes 'frame fill' from this camera's position
+    while penalizing aim directions that have a wall right in the camera's face.
+
+    Sampled over a 120° yaw arc centered on `base_direction` (typically the
+    inward wall normal, OR the camera→door direction for door-aimed candidates),
+    at a fixed pitch that puts the aim point at floor + 1.0m. Each yaw is scored as:
+
+        (visible_importance + door_bonus × visible_doors) × frame_depth_penalty
+
+    where frame-depth is the median distance to the first wall hit across rays
+    through the central FOV. Below _DEMO_MIN_FRAME_DEPTH (2.0m) the penalty
+    approaches 0. The door bonus pushes the chosen yaw to include any entry
+    points the camera's position actually has line-of-sight to.
+    """
+    if entry_pts_xy is None:
+        entry_pts_xy = np.zeros((0, 2), dtype=float)
+    nx, ny = float(base_direction[0]), float(base_direction[1])
+    norm = math.hypot(nx, ny)
+    if norm < 1e-9:
+        nx, ny = 1.0, 0.0  # degenerate — pick an arbitrary direction
+    else:
+        nx, ny = nx / norm, ny / norm
+    base_angle = math.atan2(ny, nx)
+    aim_z = floor_z + _DEMO_AIM_FLOOR_OFFSET
+
+    blockers = _build_blocker_segments(segments, aabbs)
+
+    best_target = [
+        float(cam_pos[0] + nx * _DEMO_AIM_DISTANCE),
+        float(cam_pos[1] + ny * _DEMO_AIM_DISTANCE),
+        aim_z,
+    ]
+    best_score = -1.0
+
+    cells_3d = np.column_stack([cells_xy, np.full(len(cells_xy), 1.2)])
+    entry_3d = (
+        np.column_stack([entry_pts_xy, np.full(len(entry_pts_xy), 1.0)])
+        if len(entry_pts_xy) else np.zeros((0, 3), dtype=float)
+    )
+    for offset_deg in _DEMO_YAW_SAMPLES_DEG:
+        a = base_angle + math.radians(offset_deg)
+        tx = float(cam_pos[0] + math.cos(a) * _DEMO_AIM_DISTANCE)
+        ty = float(cam_pos[1] + math.sin(a) * _DEMO_AIM_DISTANCE)
+
+        # Frame-depth: median first-wall distance across the central FOV.
+        # Cameras pointed at a wall 1m away will have a tiny median; cameras
+        # pointed down a hallway will have a large one.
+        ray_dists = []
+        for ray_deg in _DEMO_FRAME_RAY_OFFSETS_DEG:
+            ra = a + math.radians(ray_deg)
+            d = _ray_seg_distances(
+                cam_pos[:2],
+                np.array([math.cos(ra), math.sin(ra)]),
+                blockers,
+            )
+            ray_dists.append(d)
+        # Use median so a single ray slipping through a doorway doesn't rescue
+        # an otherwise wall-staring aim.
+        frame_depth = float(np.median(ray_dists))
+        # Smooth penalty: 0 at depth 0, linearly to 1.0 at _DEMO_MIN_FRAME_DEPTH,
+        # capped at 1.0 beyond. Squared so wall-staring yaws are heavily punished.
+        depth_factor = min(frame_depth / _DEMO_MIN_FRAME_DEPTH, 1.0) ** 2
+
+        target_3d = np.array([tx, ty, aim_z])
+        fov = camera_fov_mask(cam_pos, target_3d, fov_h, fov_v, cells_3d)
+        idx = np.where(fov)[0]
+        if len(idx) == 0:
+            continue
+        vis = occlusion_mask(cam_pos[:2], cells_xy[idx], segments, aabbs)
+        if not vis.any():
+            continue
+        visible_idx = idx[vis]
+        floor_score = float(cell_weights[visible_idx].sum())
+
+        # Door bonus: how many entry points this yaw has FOV + LoS to.
+        # Door positions are inflated toward the camera to step past stacked
+        # wall surfaces left by the parser.
+        door_score = 0.0
+        if len(entry_3d) and door_bonus_per_entry > 0:
+            e_fov = camera_fov_mask(cam_pos, target_3d, fov_h, fov_v, entry_3d)
+            e_idx = np.where(e_fov)[0]
+            if len(e_idx):
+                inflated = _doors_toward_cam(cam_pos[:2], entry_pts_xy[e_idx])
+                e_vis = occlusion_mask(cam_pos[:2], inflated, segments, aabbs)
+                door_score = float(e_vis.sum()) * door_bonus_per_entry
+
+        score = (floor_score + door_score) * depth_factor
+
+        if score > best_score:
+            best_score = score
+            best_target = [round(tx, 2), round(ty, 2), round(aim_z, 2)]
+
+    return best_target
 
 
 def _make_camera(candidate: dict, ctype: dict, idx: int) -> dict:
@@ -379,6 +737,9 @@ def _make_camera(candidate: dict, ctype: dict, idx: int) -> dict:
         "hdr_capable": ctype["hdr"],
         "status": "active",
         "locked": False,
+        # Inward-pointing wall normal — lets the renderer attach a mount plate
+        # on the wall side of the camera body.
+        "mount_normal": list(candidate["normal"]),
     }
 _make_camera.counter = []  # type: ignore[attr-defined]
 
@@ -482,6 +843,19 @@ def _compute_analytics(scene, cameras, importance_grid, grid_bounds, grid_resolu
     coverage_count = vis.sum(axis=0).reshape(H, W)
     coverage_grid  = coverage_count > 0
 
+    # Zero out importance for cells outside any room polygon — those cells
+    # are unreachable phantoms and shouldn't appear as blind spots.
+    polygons = [r["polygon"] for r in (scene.get("_raw_rooms") or []) if r.get("polygon")]
+    if polygons:
+        in_room_grid = np.zeros((H, W), dtype=bool)
+        for r_idx in range(H):
+            for c_idx in range(W):
+                x = grid_bounds["min"][0] + (c_idx + 0.5) * grid_resolution
+                y = grid_bounds["min"][1] + (r_idx + 0.5) * grid_resolution
+                if any(_point_in_polygon(x, y, p) for p in polygons):
+                    in_room_grid[r_idx, c_idx] = True
+        importance_grid = importance_grid * in_room_grid
+
     return {
         "entry_points_covered": _entry_points_covered(scene, cameras),
         "entry_points_total":   entry_points_total,
@@ -509,7 +883,10 @@ def _entry_points_covered(scene: dict, cameras: list[dict]) -> int:
         idx     = np.where(fov)[0]
         if len(idx) == 0:
             continue
-        vis = occlusion_mask(cam_pos[:2], ep_xy[idx], segments, aabbs)
+        # Inflate door positions toward the camera to step past stacked
+        # wall surfaces left by the parser (see _doors_toward_cam).
+        inflated = _doors_toward_cam(cam_pos[:2], ep_xy[idx])
+        vis = occlusion_mask(cam_pos[:2], inflated, segments, aabbs)
         covered[idx[vis]] = True
     return int(covered.sum())
 

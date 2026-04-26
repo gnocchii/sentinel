@@ -1,6 +1,12 @@
 import json
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+# Force UTF-8 stdout/stderr on Windows (cp1252 default crashes on prints with → ✓ etc.)
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

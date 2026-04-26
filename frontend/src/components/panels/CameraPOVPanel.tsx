@@ -16,7 +16,7 @@ export default function CameraPOVPanel() {
 
   if (!selectedCam) return null
 
-  const others = cameras.filter((c) => c.id !== selectedCameraId).slice(0, 4)
+  const others = cameras.filter((c) => c.id !== selectedCameraId)
 
   return (
     <div className="flex flex-col gap-3 p-4">
