@@ -22,7 +22,16 @@ const TABS: { id: TwinTab; label: string }[] = [
 ]
 
 export default function SceneViewer() {
-  const { activeTab, setActiveTab } = useSentinel()
+  const { activeTab, setActiveTab, sceneId } = useSentinel()
+
+  if (!sceneId) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-4 bg-bg">
+        <span className="text-cyan font-semibold tracking-widest text-lg">SENTINEL</span>
+        <p className="text-dim text-sm">Upload a USDZ scan to begin analysis.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full">
