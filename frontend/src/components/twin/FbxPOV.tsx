@@ -9,46 +9,23 @@ import { Suspense, useEffect } from "react"
 import { Canvas, useThree } from "@react-three/fiber"
 import * as THREE from "three"
 import FbxModel from "./FbxModel"
-import { useSentinel } from "@/store/sentinel"
 import type { Camera } from "@/lib/types"
-
-function adjustedPosition(cam: Camera): [number, number, number] {
-  const dx = cam.target[0] - cam.position[0]
-  const dy = cam.target[1] - cam.position[1]
-  const dz = cam.target[2] - cam.position[2]
-  const len = Math.hypot(dx, dy, dz) || 1
-  const push = 0.5
-  return [
-    cam.position[0] + (dx / len) * push,
-    cam.position[1] + (dy / len) * push,
-    cam.position[2] + (dz / len) * push,
-  ]
-}
 
 function POVCameraSetup({ cam }: { cam: Camera }) {
   const { camera } = useThree() as { camera: THREE.PerspectiveCamera }
-  const sceneBounds = useSentinel((s) => s.scene?.bounds)
   useEffect(() => {
-    const pos = adjustedPosition(cam)
     camera.up.set(0, 0, 1)
-    camera.position.set(pos[0], pos[1], pos[2])
-
-    // Constraint A: POV must contain the mesh. Override the security cam's
-    // stored target — aim the rendered camera at the scene centroid (and at
-    // floor Z so the artificial floor is also in frame).
-    if (sceneBounds) {
-      const cx = (sceneBounds.min[0] + sceneBounds.max[0]) / 2
-      const cy = (sceneBounds.min[1] + sceneBounds.max[1]) / 2
-      camera.lookAt(cx, cy, sceneBounds.min[2])
-    } else {
-      camera.lookAt(cam.target[0], cam.target[1], cam.target[2])
-    }
-
-    camera.fov  = Math.max(cam.fov_h ?? 90, 100)  // wide enough to fit the mesh
+    camera.position.set(cam.position[0], cam.position[1], cam.position[2])
+    camera.lookAt(cam.target[0], cam.target[1], cam.target[2])
+    camera.fov  = cam.fov_v ?? 70   // Three.js camera.fov is VERTICAL — match the placed cam
     camera.near = 0.05
     camera.far  = 200
     camera.updateProjectionMatrix()
-  }, [cam.position[0], cam.position[1], cam.position[2], cam.fov_h, camera, sceneBounds])
+  }, [
+    cam.position[0], cam.position[1], cam.position[2],
+    cam.target[0], cam.target[1], cam.target[2],
+    cam.fov_v, camera,
+  ])
   return null
 }
 
@@ -72,11 +49,10 @@ interface Props {
 }
 
 export default function FbxPOV({ camera, url, scale = 1, captureRef }: Props) {
-  const startPos = adjustedPosition(camera)
   return (
     <div className="relative w-full h-full bg-black overflow-hidden">
       <Canvas
-        camera={{ position: startPos, fov: 70, near: 0.05, far: 200 }}
+        camera={{ position: camera.position, fov: camera.fov_v ?? 70, near: 0.05, far: 200 }}
         gl={{ antialias: true, powerPreference: "default", preserveDrawingBuffer: true }}
       >
         <color attach="background" args={["#05070a"]} />

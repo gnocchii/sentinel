@@ -52,6 +52,10 @@ export default function CameraNode({ camera, selected }: { camera: Camera; selec
         <BulletBody />
       )}
 
+      {/* Wall-mount bracket — only when the optimizer told us this camera is wall-mounted.
+          Local -Y points toward the wall (since the body's quaternion rotates local +Y at target). */}
+      {camera.mount_normal && <WallMount />}
+
       {/* Status LED — small emissive sphere on side */}
       <mesh position={[0.06, -0.12, 0.05]}>
         <sphereGeometry args={[0.022, 8, 8]} />
@@ -178,6 +182,28 @@ function PTZBody() {
       <mesh position={[0, 0.115, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.04, 24]} />
         <meshPhysicalMaterial color="#000810" metalness={0.1} roughness={0.04} clearcoat={1} />
+      </mesh>
+    </group>
+  )
+}
+
+// ─── Wall-mount bracket: short arm + flush plate against the wall ──
+
+function WallMount() {
+  // Camera position is ~12 cm off the wall (per optimizer). Local -Y is the
+  // wall direction. Render: a thin arm from the camera back to the wall, and
+  // a flat plate flush to the wall surface.
+  return (
+    <group>
+      {/* Bracket arm */}
+      <mesh position={[0, -0.06, 0]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.12, 8]} />
+        <meshStandardMaterial color="#4a5363" metalness={0.6} roughness={0.4} />
+      </mesh>
+      {/* Mounting plate, almost flush to the wall */}
+      <mesh position={[0, -0.115, 0]}>
+        <cylinderGeometry args={[0.06, 0.06, 0.012, 18]} />
+        <meshStandardMaterial color="#39414e" metalness={0.55} roughness={0.45} />
       </mesh>
     </group>
   )
