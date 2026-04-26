@@ -1,7 +1,7 @@
 "use client"
-import { useCallback } from "react"
+import { useCallback, useRef } from "react"
 import { useSentinel } from "@/store/sentinel"
-import { optimizeImportance } from "@/lib/api"
+import { optimizeImportance, recomputeImportance, streamImportanceReasoning } from "@/lib/api"
 
 const MIN = 500
 const MAX = 25000
@@ -20,15 +20,48 @@ export default function BudgetSlider() {
     sceneId, setCameras, setCoveragePct, setSceneAnalysis,
     importanceScore, setImportanceScore,
     optimizing, setOptimizing,
+    pushActivity, startLoading, stopLoading,
+    setImportance,
+    appendK2Thinking, clearK2Text, setK2Streaming,
   } = useSentinel()
 
+  const slideStartBudget = useRef<number | null>(null)
+  const slideTimer = useRef<number | null>(null)
+
   const handleSlide = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (slideStartBudget.current === null) slideStartBudget.current = budget
     setBudget(logToBudget(Number(e.target.value)))
-  }, [setBudget])
+    if (slideTimer.current) window.clearTimeout(slideTimer.current)
+    slideTimer.current = window.setTimeout(() => {
+      const start = slideStartBudget.current
+      const end = useSentinel.getState().budget
+      slideStartBudget.current = null
+      if (start === null || start === end) return
+      const delta = end - start
+      pushActivity({
+        severity: "info",
+        title: "Budget adjusted",
+        body: `${start < end ? "↑" : "↓"} $${start.toLocaleString()} → $${end.toLocaleString()} (${delta > 0 ? "+" : ""}$${delta.toLocaleString()})`,
+      })
+    }, 450)
+  }, [setBudget, budget, pushActivity])
 
   const handleOptimize = useCallback(async () => {
     if (!sceneId || optimizing) return
     setOptimizing(true)
+    startLoading("optimize", `Optimizing @ $${budget.toLocaleString()}`)
+    pushActivity({ severity: "info", title: "Optimization started", body: `Budget $${budget.toLocaleString()}` })
+
+    // Fire-and-forget K2 reasoning stream so the left-rail terminal lights up
+    // while the optimization runs.
+    clearK2Text()
+    setK2Streaming(true)
+    const stopK2 = streamImportanceReasoning(
+      sceneId,
+      (token) => appendK2Thinking(token),
+      () => setK2Streaming(false),
+    )
+    setTimeout(() => stopK2(), 120_000)
     try {
       const result = await optimizeImportance(sceneId, budget, 12)
       setCameras(result.cameras)
@@ -41,36 +74,54 @@ export default function BudgetSlider() {
         overlap_zones:        result.overlap_zones,
         total_cost_usd:       result.total_cost_usd,
       })
+      pushActivity({
+        severity: "success",
+        title: "Optimization complete",
+        body: `${result.cameras.length} cameras · ${(result.score * 100).toFixed(1)}% score · ${result.entry_points_covered}/${result.entry_points_total} entries · $${(result.total_cost_usd ?? 0).toLocaleString()}`,
+      })
+
+      // Refresh button also re-runs the importance map so visualizations stay in sync.
+      try {
+        startLoading("importance", "Recomputing importance")
+        const imp = await recomputeImportance(sceneId)
+        setImportance(imp)
+        pushActivity({
+          severity: "success",
+          title: "Importance map updated",
+          body: `${imp.rooms?.length ?? 0} rooms · ${imp.doors?.length ?? 0} doors · ${imp.meta?.source}`,
+        })
+      } catch (e) {
+        pushActivity({ severity: "warning", title: "Importance recompute failed", body: e instanceof Error ? e.message : String(e) })
+      } finally {
+        stopLoading("importance")
+      }
     } catch (err) {
       console.error("optimize failed", err)
-      alert(`Optimize failed: ${err}`)
+      pushActivity({ severity: "critical", title: "Optimization failed", body: String(err) })
     } finally {
       setOptimizing(false)
+      stopLoading("optimize")
     }
-  }, [sceneId, budget, optimizing, setCameras, setCoveragePct, setImportanceScore, setSceneAnalysis, setOptimizing])
+  }, [sceneId, budget, optimizing, setCameras, setCoveragePct, setImportanceScore, setSceneAnalysis, setOptimizing, pushActivity, startLoading, stopLoading, setImportance, appendK2Thinking, clearK2Text, setK2Streaming])
 
   const pct = budgetToLog(budget)
   const pctNum = pct * 100
 
   return (
     <div className="flex items-center gap-4 flex-1 min-w-0">
-      <span className="text-dim text-[11px] uppercase tracking-[0.12em] shrink-0">Budget</span>
+      <span className="text-[10.5px] font-semibold text-dim uppercase tracking-[0.16em] shrink-0">Budget</span>
 
-      <div className="relative flex-1 h-5 flex items-center group">
-        <div className="relative w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+      <div className="relative flex-1 h-9 flex items-center group">
+        <div className="relative w-full h-9 rounded-full bg-white/[0.08] overflow-hidden">
           <div
             className="absolute inset-y-0 left-0 rounded-full transition-all duration-200"
             style={{
-              width: `${pctNum}%`,
-              background: "linear-gradient(90deg, #89b4fa 0%, #cba6f7 100%)",
-              boxShadow: "0 0 10px rgba(137,180,250,0.45)",
+              width: `${Math.max(pctNum, 4)}%`,
+              background: "#ffffff",
+              boxShadow: "0 0 18px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.6)",
             }}
           />
         </div>
-        <div
-          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white shadow-[0_0_0_3px_rgba(137,180,250,0.25),0_2px_8px_rgba(0,0,0,0.6)] pointer-events-none transition-transform duration-150 group-hover:scale-110"
-          style={{ left: `${pctNum}%` }}
-        />
         <input
           type="range"
           min={0}
@@ -78,7 +129,7 @@ export default function BudgetSlider() {
           step={0.001}
           value={pct}
           onChange={handleSlide}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
       </div>
 
@@ -88,15 +139,10 @@ export default function BudgetSlider() {
       <button
         onClick={handleOptimize}
         disabled={optimizing || !sceneId}
-        className="glass-btn glass-btn--accent shrink-0"
+        className="glass-btn glass-btn--accent shrink-0 !text-[10.5px] !font-semibold !uppercase !tracking-[0.16em] !px-6 !py-2.5"
       >
-        {optimizing ? "Optimizing…" : "Optimize"}
+        {optimizing ? "Refreshing…" : "Refresh"}
       </button>
-      {importanceScore > 0 && (
-        <span className="text-green text-xs font-bold shrink-0 tabular-nums">
-          {(importanceScore * 100).toFixed(1)}%
-        </span>
-      )}
     </div>
   )
 }

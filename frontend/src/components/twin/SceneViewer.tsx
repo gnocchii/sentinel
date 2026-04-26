@@ -1,26 +1,39 @@
 "use client"
+import { useEffect } from "react"
 import { useSentinel } from "@/store/sentinel"
-import DigitalTwin from "./DigitalTwin"
+import DigitalTwinCoverage from "./DigitalTwinCoverage"
 import PointCloudView from "./PointCloudView"
-import CoverageMap from "./CoverageMap"
 import ThreatPath from "./ThreatPath"
-import CameraFeedsGrid from "./CameraFeedsGrid"
-import MeshOptimizer from "./MeshOptimizer"
 import ImportanceMap from "./ImportanceMap"
-import WhatIfEditor from "./WhatIfEditor"
+import CameraDetailView from "./CameraDetailView"
 
 export default function SceneViewer() {
-  const { activeTab } = useSentinel()
+  const activeTab = useSentinel((s) => s.activeTab)
+  const selectedCameraId = useSentinel((s) => s.selectedCameraId)
+  const cameras = useSentinel((s) => s.cameras)
+  const selectCamera = useSentinel((s) => s.selectCamera)
+
+  // Auto-select first camera when Camera Feeds tab is active and nothing is
+  // selected yet, so the user lands on a populated POV + metadata view.
+  useEffect(() => {
+    if (activeTab === "camera-feeds" && !selectedCameraId && cameras.length > 0) {
+      selectCamera(cameras[0].id)
+    }
+  }, [activeTab, selectedCameraId, cameras, selectCamera])
+
+  if (selectedCameraId) return <div className="w-full h-full"><CameraDetailView /></div>
+
   return (
     <div className="w-full h-full relative bg-transparent overflow-hidden">
-      {activeTab === "camera-feeds"   && <CameraFeedsGrid />}
-      {activeTab === "digital-twin"   && <DigitalTwin />}
+      {activeTab === "digital-twin"   && <DigitalTwinCoverage />}
       {activeTab === "point-cloud"    && <PointCloudView />}
-      {activeTab === "coverage-map"   && <CoverageMap />}
       {activeTab === "threat-path"    && <ThreatPath />}
-      {activeTab === "mesh-optimizer" && <MeshOptimizer />}
       {activeTab === "importance-map" && <ImportanceMap />}
-      {activeTab === "what-if"        && <WhatIfEditor />}
+      {activeTab === "camera-feeds"   && (
+        <div className="w-full h-full flex items-center justify-center">
+          <p className="text-dim text-sm">No cameras yet — run Refresh to populate.</p>
+        </div>
+      )}
     </div>
   )
 }

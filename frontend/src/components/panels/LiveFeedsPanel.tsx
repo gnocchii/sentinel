@@ -1,14 +1,37 @@
 "use client"
 import { useSentinel } from "@/store/sentinel"
-import CameraFOVView from "@/components/twin/CameraFOVView"
+import CameraPreview from "@/components/twin/CameraPreview"
 import type { Camera } from "@/lib/types"
 
+/**
+ * CCTV-style live feeds. Always renders a 2-col grid of every camera. Layout
+ * never changes on tap — clicking a tile selects that camera (which the main
+ * display picks up via store.selectedCameraId). Selected tile gets a cyan ring.
+ */
 export default function LiveFeedsPanel() {
-  const { cameras, selectedCameraId, selectCamera } = useSentinel()
+  const cameras = useSentinel((s) => s.cameras)
+  const selectedCameraId = useSentinel((s) => s.selectedCameraId)
+  const selectCamera = useSentinel((s) => s.selectCamera)
+  const optimizing = useSentinel((s) => s.optimizing)
+
+  if (cameras.length === 0) {
+    return (
+      <section className="px-4 pb-4 h-full flex flex-col">
+        <div className="flex flex-col gap-2 flex-1 overflow-y-auto scroll-thin pr-0.5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonTile key={i} index={i} pulse={optimizing} />
+          ))}
+        </div>
+        <p className="text-[10px] text-dim/80 mt-3 text-center shrink-0">
+          {optimizing ? "Synthesizing camera placement…" : "Waiting for scene…"}
+        </p>
+      </section>
+    )
+  }
 
   return (
-    <section className="px-5 pb-5">
-      <div className="grid grid-cols-2 gap-1.5">
+    <section className="px-4 pb-4 h-full flex flex-col min-h-0">
+      <div className="flex flex-col gap-2 flex-1 overflow-y-auto scroll-thin pr-0.5 min-h-0">
         {cameras.map((cam) => (
           <FeedTile
             key={cam.id}
@@ -23,24 +46,32 @@ export default function LiveFeedsPanel() {
 }
 
 function FeedTile({ cam, selected, onClick }: { cam: Camera; selected: boolean; onClick: () => void }) {
-  const isObstructed = cam.id === "CAM-03"
-
   return (
     <button
       onClick={onClick}
-      className={`relative aspect-video rounded overflow-hidden border text-left transition-all
-        ${selected ? "border-cyan/60 ring-1 ring-cyan/30" : "border-border hover:border-muted"}
-        ${cam.status === "warning" ? "border-amber/40" : ""}`}
+      className={`relative h-56 shrink-0 rounded-md overflow-hidden border text-left transition-all bg-black
+        ${selected
+          ? "border-cyan/60 ring-2 ring-cyan/40 shadow-[0_0_20px_-4px_rgba(137,180,250,0.6)]"
+          : "border-white/[0.06] hover:border-cyan/30 hover:ring-1 hover:ring-cyan/15"}`}
     >
-      {/* Simulated camera feed */}
-      <CameraFOVView camera={cam} width={132} height={74} />
-
-      {/* Obstruction badge on top */}
-      {isObstructed && (
-        <div className="absolute bottom-1 left-1 right-1 border border-red/60 rounded text-[8px] text-red px-1 py-0.5 text-center bg-bg/60">
-          OBSTRUCTION
-        </div>
-      )}
+      <CameraPreview camera={cam} size="mini" />
     </button>
+  )
+}
+
+function SkeletonTile({ index, pulse }: { index: number; pulse: boolean }) {
+  return (
+    <div className="relative h-56 shrink-0 rounded-md overflow-hidden border border-white/[0.05] bg-black/60">
+      <div
+        className={`absolute inset-0 ${pulse ? "skeleton" : ""}`}
+        style={!pulse ? { backgroundImage: "repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(0,255,136,0.04) 2px,rgba(0,255,136,0.04) 3px)" } : undefined}
+      />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="cctv-chip opacity-40">CAM-{String(index + 1).padStart(2, "0")}</span>
+      </div>
+      <div className="absolute top-1.5 right-1.5">
+        <span className="text-[9px] font-mono text-dim/60">— OFFLINE —</span>
+      </div>
+    </div>
   )
 }

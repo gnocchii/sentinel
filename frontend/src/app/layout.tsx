@@ -2,8 +2,9 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "SENTINEL — Physical Security Architect",
+  title: "Sentinel",
   description: "AI-powered camera placement and security analysis",
+  icons: { icon: "/favicon.png", shortcut: "/favicon.png", apple: "/favicon.png" },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

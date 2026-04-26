@@ -4,6 +4,7 @@ import TopBar from "@/components/layout/TopBar"
 import LeftRail from "@/components/layout/LeftRail"
 import RightRail from "@/components/layout/RightRail"
 import SceneViewer from "@/components/twin/SceneViewer"
+import TopProgress from "@/components/ui/TopProgress"
 
 export default function TwinDashboard() {
   useScene()
@@ -29,6 +30,7 @@ export default function TwinDashboard() {
         }}
       />
 
+      <TopProgress />
       <TopBar />
 
       <div className="flex flex-1 gap-4 px-8 pb-6 pt-2 overflow-hidden">

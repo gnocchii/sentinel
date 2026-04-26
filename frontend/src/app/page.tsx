@@ -17,9 +17,9 @@ export default function Home() {
       {/* Animated Catppuccin gradient background */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <Grainient
-          color1="#cba6f7"  // mauve
-          color2="#89b4fa"  // blue
-          color3="#f5c2e7"  // pink
+          color1="#1e2a52"
+          color2="#89b4fa"
+          color3="#3b5998"
           timeSpeed={0.18}
           warpStrength={1.0}
           warpFrequency={4.0}

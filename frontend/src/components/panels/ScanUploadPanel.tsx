@@ -12,7 +12,7 @@ function formatBytes(n: number) {
 }
 
 export default function ScanUploadPanel() {
-  const { setPointCloud, setActiveTab } = useSentinel()
+  const { setPointCloud, setActiveTab, pushActivity, startLoading, stopLoading, setLoadingProgress } = useSentinel()
   const [scanId, setScanId] = useState<string | null>(null)
   const [status, setStatus] = useState<"idle" | "uploading" | "processing" | "done" | "failed">("idle")
   const [message, setMessage] = useState("Export a LiDAR point cloud as .ply and upload it.")
@@ -29,6 +29,8 @@ export default function ScanUploadPanel() {
       return
     }
 
+    startLoading("upload-ply", `Uploading ${file.name}`)
+    pushActivity({ severity: "info", title: "LiDAR scan upload started", body: `${file.name} · ${formatBytes(file.size)}` })
     try {
       setStatus("uploading")
       setMessage(`Uploading ${file.name} (${formatBytes(file.size)})…`)
@@ -40,6 +42,7 @@ export default function ScanUploadPanel() {
 
       const maxAttempts = 40
       for (let i = 0; i < maxAttempts; i++) {
+        setLoadingProgress("upload-ply", Math.min(95, 10 + (i / maxAttempts) * 85))
         const s = await fetchScanStatus(uploaded.scan_id)
         if (s.status === "done") {
           const pointCloud = await fetchScanPointCloud(uploaded.scan_id)
@@ -47,11 +50,19 @@ export default function ScanUploadPanel() {
           setActiveTab("point-cloud")
           setStatus("done")
           setMessage(`Loaded ${pointCloud.count.toLocaleString()} points from ${s.filename}`)
+          pushActivity({
+            severity: "success",
+            title: "Point cloud ingested",
+            body: `${pointCloud.count.toLocaleString()} pts · ${s.filename}`,
+          })
+          stopLoading("upload-ply")
           return
         }
         if (s.status === "failed") {
           setStatus("failed")
           setMessage(s.error ?? "Processing failed")
+          pushActivity({ severity: "critical", title: "Scan processing failed", body: s.error ?? "Unknown" })
+          stopLoading("upload-ply")
           return
         }
         await new Promise((r) => setTimeout(r, 1200))
@@ -59,9 +70,13 @@ export default function ScanUploadPanel() {
 
       setStatus("failed")
       setMessage("Timed out while waiting for processing to complete")
+      pushActivity({ severity: "warning", title: "Scan processing timed out" })
+      stopLoading("upload-ply")
     } catch (err) {
       setStatus("failed")
       setMessage(err instanceof Error ? err.message : "Upload failed")
+      pushActivity({ severity: "critical", title: "LiDAR upload failed", body: err instanceof Error ? err.message : String(err) })
+      stopLoading("upload-ply")
     }
   }
 

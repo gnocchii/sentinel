@@ -203,4 +203,4 @@ export interface ImportancePayload {
 
 // ─── UI state ────────────────────────────────────────────────────
 
-export type TwinTab = "digital-twin" | "point-cloud" | "coverage-map" | "threat-path" | "camera-feeds" | "mesh-optimizer" | "importance-map" | "what-if"
+export type TwinTab = "digital-twin" | "point-cloud" | "threat-path" | "camera-feeds" | "importance-map"

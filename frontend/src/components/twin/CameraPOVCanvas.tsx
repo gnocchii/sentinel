@@ -78,6 +78,8 @@ export default function CameraPOVCanvas({ camera, hour, size = "large", captureR
       <Canvas
         camera={{ position: startPos, fov: 70, near: 0.3, far: 60 }}
         gl={{ antialias: true, powerPreference: "default", preserveDrawingBuffer: true }}
+        dpr={size === "mini" ? [1, 1.25] : [1, 2]}
+        frameloop={size === "mini" ? "demand" : "always"}
       >
         <color attach="background" args={["#2a3038"]} />
 
@@ -111,8 +113,8 @@ export default function CameraPOVCanvas({ camera, hour, size = "large", captureR
         }}
       />
 
-      {/* Minimal HUD */}
-      <Hud camera={camera} hour={hour} size={size} />
+      {/* Minimal HUD — only on tile thumbnails; the detail view labels the camera in its own header */}
+      {size === "mini" && <Hud camera={camera} hour={hour} size={size} />}
     </div>
   )
 }

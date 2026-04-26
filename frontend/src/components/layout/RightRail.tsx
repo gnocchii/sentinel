@@ -1,44 +1,26 @@
 "use client"
 import LiveFeedsPanel from "@/components/panels/LiveFeedsPanel"
-import AlertsPanel from "@/components/panels/AlertsPanel"
-import K2Panel from "@/components/panels/K2Panel"
-import CameraPOVPanel from "@/components/panels/CameraPOVPanel"
 import BentoCard from "@/components/ui/BentoCard"
-import TerminalFrame from "@/components/ui/TerminalFrame"
 import { useSentinel } from "@/store/sentinel"
 
 export default function RightRail() {
-  const { selectedCameraId } = useSentinel()
+  const cameras = useSentinel((s) => s.cameras)
+  const selectedCameraId = useSentinel((s) => s.selectedCameraId)
+  const optimizing = useSentinel((s) => s.optimizing)
+
+  const action = cameras.length > 0
+    ? `${cameras.length} cam${cameras.length > 1 ? "s" : ""}${selectedCameraId ? " · 1 selected" : ""}`
+    : optimizing ? "synthesizing…" : "no scene"
 
   return (
     <aside className="w-[22rem] shrink-0 flex flex-col gap-3 min-h-0">
-      {selectedCameraId ? (
-        <BentoCard title="Camera POV" className="shrink-0">
-          <CameraPOVPanel />
-        </BentoCard>
-      ) : (
-        <>
-          <BentoCard title="Live Feeds" action="click to inspect" className="shrink-0">
-            <LiveFeedsPanel />
-          </BentoCard>
-
-          <TerminalFrame
-            title="alerts.log"
-            status="tail -f"
-            className="shrink-0"
-            bodyClassName="overflow-visible"
-          >
-            <AlertsPanel />
-          </TerminalFrame>
-        </>
-      )}
-
       <BentoCard
-        title="K2 Think v2"
+        title="Live Feeds"
+        action={action}
         className="flex-1 min-h-0"
-        bodyClassName="flex-1 min-h-0 flex flex-col"
+        bodyClassName="flex-1 min-h-0 overflow-hidden"
       >
-        <K2Panel />
+        <LiveFeedsPanel />
       </BentoCard>
     </aside>
   )
