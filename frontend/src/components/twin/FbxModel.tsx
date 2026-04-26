@@ -10,9 +10,50 @@
  * are placed in scene-space) actually frame the FBX correctly.
  */
 import { useFBX } from "@react-three/drei"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
+import { useThree } from "@react-three/fiber"
 import * as THREE from "three"
 import { useSentinel } from "@/store/sentinel"
+
+// Cheap one-story clip: only the CEILING. Floor is artificial (rendered below)
+// so we don't need to clip the bottom — anything below the artificial floor
+// gets occluded by it. Ceiling clip kills FBX roof noise.
+function FbxCeilingClip() {
+  const { gl } = useThree()
+  const sceneBounds = useSentinel((s) => s.scene?.bounds)
+  useEffect(() => {
+    if (!sceneBounds) return
+    const maxZ = sceneBounds.max[2]
+    const prevLocal = gl.localClippingEnabled
+    gl.localClippingEnabled = true
+    gl.clippingPlanes = [
+      new THREE.Plane(new THREE.Vector3(0, 0, -1), maxZ),  // keep z <= maxZ
+    ]
+    return () => {
+      gl.clippingPlanes = []
+      gl.localClippingEnabled = prevLocal
+    }
+  }, [gl, sceneBounds])
+  return null
+}
+
+// Artificial floor — flat dark plane just below scene.bounds.min.z. Gives every
+// camera POV a consistent floor to look at and hides under-floor noise.
+function ArtificialFloor() {
+  const sceneBounds = useSentinel((s) => s.scene?.bounds)
+  if (!sceneBounds) return null
+  const cx = (sceneBounds.min[0] + sceneBounds.max[0]) / 2
+  const cy = (sceneBounds.min[1] + sceneBounds.max[1]) / 2
+  // 1.4× the scene XY span so the floor extends past the building in the POV
+  const sx = (sceneBounds.max[0] - sceneBounds.min[0]) * 1.4
+  const sy = (sceneBounds.max[1] - sceneBounds.min[1]) * 1.4
+  return (
+    <mesh position={[cx, cy, sceneBounds.min[2] - 0.02]}>
+      <planeGeometry args={[Math.max(sx, 1), Math.max(sy, 1)]} />
+      <meshBasicMaterial color="#1a2129" side={THREE.DoubleSide} toneMapped={false} />
+    </mesh>
+  )
+}
 
 interface Props {
   url: string
@@ -26,9 +67,10 @@ export default function FbxModel({ url, scale = 1, yUpToZUp = true, autoFit = tr
   const sceneBounds = useSentinel((s) => s.scene?.bounds)
   const cloned = useMemo(() => {
     const c = fbx.clone(true)
-    // Apply rotation directly on the clone (so subsequent bbox math is in
-    // post-rotation space). We won't pass `rotation` as a prop below.
-    if (yUpToZUp) c.rotation.set(-Math.PI / 2, 0, 0)
+    // Y-up → Z-up = +90° about X (takes Y axis to Z axis). The earlier
+    // -90° flipped the sign and landed the ceiling at -Z, which after
+    // auto-fit looked like floor/ceiling were swapped.
+    if (yUpToZUp) c.rotation.set(Math.PI / 2, 0, 0)
     c.updateMatrixWorld(true)
 
     // Diagnostic: count meshes, materials with valid texture maps, and
@@ -137,5 +179,11 @@ export default function FbxModel({ url, scale = 1, yUpToZUp = true, autoFit = tr
     return c
   }, [fbx, sceneBounds, yUpToZUp, autoFit, scale])
 
-  return <primitive object={cloned} />
+  return (
+    <>
+      <FbxCeilingClip />
+      <ArtificialFloor />
+      <primitive object={cloned} />
+    </>
+  )
 }
