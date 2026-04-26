@@ -146,22 +146,6 @@ export const fetchLightingAtHour = (sceneId: string, hour: number) =>
     `/lighting/${sceneId}/hour/${hour}`
   )
 
-// ─── What-if analysis ────────────────────────────────────────────
-
-export const runWhatIf = (sceneId: string, removedEntryIds: string[], budgetUsd: number) =>
-  post<{
-    cameras: Camera[]
-    coverage_pct: number
-    total_cost_usd: number
-    entry_points_covered: number
-    entry_points_total: number
-    blind_spots: BlindSpot[]
-    removed_entry_ids: string[]
-    orig_coverage_pct: number
-    delta_coverage_pct: number
-    delta_camera_count: number
-  }>("/scene/what-if", { scene_id: sceneId, removed_entry_ids: removedEntryIds, budget_usd: budgetUsd })
-
 // ─── PDF report export ───────────────────────────────────────────
 
 export async function exportReport(

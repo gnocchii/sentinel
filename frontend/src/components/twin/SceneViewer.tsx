@@ -7,7 +7,6 @@ import CoverageMap from "./CoverageMap"
 import ThreatPath from "./ThreatPath"
 import CameraFeedsGrid from "./CameraFeedsGrid"
 import ImportanceMap from "./ImportanceMap"
-import WhatIfEditor from "./WhatIfEditor"
 import BudgetSlider from "@/components/controls/BudgetSlider"
 import TimeScrubber from "@/components/controls/TimeScrubber"
 
@@ -17,7 +16,6 @@ const TABS: { id: TwinTab; label: string }[] = [
   { id: "point-cloud",    label: "Point Cloud" },
   { id: "coverage-map",   label: "Coverage Map" },
   { id: "threat-path",    label: "Threat Path" },
-  { id: "what-if",        label: "What-If" },
   { id: "importance-map", label: "Importance Map" },
 ]
 
@@ -42,7 +40,6 @@ export default function SceneViewer() {
         {activeTab === "point-cloud"    && <PointCloudView />}
         {activeTab === "coverage-map"   && <CoverageMap />}
         {activeTab === "threat-path"    && <ThreatPath />}
-        {activeTab === "what-if"        && <WhatIfEditor />}
         {activeTab === "importance-map" && <ImportanceMap />}
       </div>
 
