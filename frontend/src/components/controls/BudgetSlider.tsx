@@ -23,6 +23,7 @@ export default function BudgetSlider() {
     pushActivity, startLoading, stopLoading,
     setImportance,
     appendK2Thinking, clearK2Text, setK2Streaming,
+    selectCamera,
   } = useSentinel()
 
   const slideStartBudget = useRef<number | null>(null)
@@ -64,6 +65,9 @@ export default function BudgetSlider() {
     setTimeout(() => stopK2(), 120_000)
     try {
       const result = await optimizeImportance(sceneId, budget, 12)
+      // Clear any stale selection before swapping the camera list — the previously
+      // selected ID may no longer exist (or its data may have shifted) after re-optimize.
+      selectCamera(null)
       setCameras(result.cameras)
       setCoveragePct(result.score * 100)
       setImportanceScore(result.score)
@@ -102,7 +106,7 @@ export default function BudgetSlider() {
       setOptimizing(false)
       stopLoading("optimize")
     }
-  }, [sceneId, budget, optimizing, setCameras, setCoveragePct, setImportanceScore, setSceneAnalysis, setOptimizing, pushActivity, startLoading, stopLoading, setImportance, appendK2Thinking, clearK2Text, setK2Streaming])
+  }, [sceneId, budget, optimizing, setCameras, setCoveragePct, setImportanceScore, setSceneAnalysis, setOptimizing, pushActivity, startLoading, stopLoading, setImportance, appendK2Thinking, clearK2Text, setK2Streaming, selectCamera])
 
   const pct = budgetToLog(budget)
   const pctNum = pct * 100

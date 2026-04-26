@@ -25,20 +25,26 @@ export default function CameraPreview({ camera, size = "mini" }: Props) {
   const feedsFbxUrl = useSentinel((s) => s.feedsFbxUrl)
   const simulationHour = useSentinel((s) => s.simulationHour)
 
+  // Force the inner R3F Canvas to remount whenever the camera identity OR its
+  // pose changes — without this, re-optimizing reuses CAM-XX ids with new
+  // positions/targets and the canvas never picks up the change. (Mirrors the
+  // upstream cam-loading-bug fix on main.)
+  const remountKey = `${camera.id}:${camera.position.join(",")}:${camera.target.join(",")}`
+
   if (feedsFbxUrl) {
     return (
       <div className="relative w-full h-full">
-        <FbxPOV camera={camera} url={feedsFbxUrl} />
+        <FbxPOV key={remountKey} camera={camera} url={feedsFbxUrl} />
         {size === "mini" && <PovHud camera={camera} hour={simulationHour} size={size} />}
       </div>
     )
   }
 
   if (sceneId === "avery_house") {
-    return <CameraFOVView camera={camera} fill className="w-full h-full" />
+    return <CameraFOVView key={remountKey} camera={camera} fill className="w-full h-full" />
   }
 
-  return <CameraPOVCanvas camera={camera} hour={simulationHour} size={size} />
+  return <CameraPOVCanvas key={remountKey} camera={camera} hour={simulationHour} size={size} />
 }
 
 function PovHud({ camera, hour, size }: { camera: Camera; hour: number; size: "mini" | "large" }) {
