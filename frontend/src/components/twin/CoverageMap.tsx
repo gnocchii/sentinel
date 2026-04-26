@@ -1,88 +1,183 @@
 "use client"
 /**
- * Top-down 2D heatmap of coverage density.
- * Renders via an HTML canvas — no WebGL needed for this view.
- * TODO: replace placeholder gradient with real coverage grid from raycast service.
+ * 3D Coverage Map.
+ *
+ * Reuses the same scene mesh as the Digital Twin (walls, floor, furniture, doors,
+ * cameras + FOV cones), then overlays a per-camera coverage layer.
+ *
+ * Each camera gets a unique hue. The cells it actually sees (through walls,
+ * past furniture — same raycast as the optimizer) are rendered as a single
+ * InstancedMesh of low-opacity colored tiles on the floor. Tiles overlap
+ * additively so cells covered by multiple cameras visibly accumulate brightness.
  */
-import { useEffect, useRef } from "react"
+
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Canvas } from "@react-three/fiber"
+import { OrbitControls, Grid } from "@react-three/drei"
+import * as THREE from "three"
 import { useSentinel } from "@/store/sentinel"
+import { fetchCoverage3D } from "@/lib/api"
+import { SceneShell, CameraReframer, sceneView } from "./SceneShell"
+import type { Coverage3DPayload, CameraCoverage3D } from "@/lib/types"
 
 export default function CoverageMap() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const { scene, cameras } = useSentinel()
+  const { scene, cameras, sceneId } = useSentinel()
+  const [coverage, setCoverage] = useState<Coverage3DPayload | null>(null)
+  const [loading, setLoading] = useState(false)
+  const view = useMemo(() => sceneView(scene), [scene])
 
+  // Fetch when scene + cameras both available, refetch when camera list changes
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || !scene) return
-    const ctx = canvas.getContext("2d")!
-    const W = canvas.width
-    const H = canvas.height
-
-    const [bx, by] = [scene.bounds.max[0], scene.bounds.max[1]]
-    const sx = W / bx
-    const sy = H / by
-
-    ctx.fillStyle = "#0a0c0f"
-    ctx.fillRect(0, 0, W, H)
-
-    // Floor
-    ctx.fillStyle = "#111418"
-    ctx.fillRect(0, 0, W, H)
-
-    // Coverage radial gradients per camera
-    for (const cam of cameras) {
-      const [cx, cy] = [cam.position[0] * sx, H - cam.position[1] * sy]
-      const radius = Math.tan(((cam.fov_h / 2) * Math.PI) / 180) * 5 * ((sx + sy) / 2)
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
-      const alpha = cam.status === "active" ? 0.18 : 0.06
-      grad.addColorStop(0,   `rgba(0,255,136,${alpha})`)
-      grad.addColorStop(0.7, `rgba(0,255,136,${alpha * 0.4})`)
-      grad.addColorStop(1,   "rgba(0,255,136,0)")
-      ctx.fillStyle = grad
-      ctx.fillRect(0, 0, W, H)
+    if (!sceneId || !cameras || cameras.length === 0) {
+      setCoverage(null)
+      return
     }
+    let cancelled = false
+    setLoading(true)
+    fetchCoverage3D(sceneId, cameras, 0.25)
+      .then((c) => { if (!cancelled) setCoverage(c) })
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [sceneId, cameras])
 
-    // Walls
-    ctx.strokeStyle = "#2a3240"
-    ctx.lineWidth = 2
-    for (const wall of scene.walls) {
-      ctx.beginPath()
-      ctx.moveTo(wall.from[0] * sx, H - wall.from[1] * sy)
-      ctx.lineTo(wall.to[0] * sx, H - wall.to[1] * sy)
-      ctx.stroke()
-    }
+  const cameraColors = useMemo(() => {
+    const out: Record<string, string> = {}
+    cameras.forEach((c, i) => {
+      const hue = (i * 360) / Math.max(1, cameras.length)
+      out[c.id] = `hsl(${hue}, 80%, 60%)`
+    })
+    return out
+  }, [cameras])
 
-    // Blind spots
-    for (const bs of scene.analysis.blind_spots) {
-      const [bsx, bsy] = [bs.position[0] * sx, H - bs.position[1] * sy]
-      ctx.fillStyle = "rgba(255,68,68,0.25)"
-      ctx.beginPath()
-      ctx.arc(bsx, bsy, 12, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.strokeStyle = "#ff4444"
-      ctx.lineWidth = 1
-      ctx.stroke()
-    }
-
-    // Entry points
-    for (const ep of scene.entry_points) {
-      const [epx, epy] = [ep.position[0] * sx, H - ep.position[1] * sy]
-      ctx.fillStyle = ep.type === "door" ? "#ff4444" : "#ffaa00"
-      ctx.beginPath()
-      ctx.arc(epx, epy, 5, 0, Math.PI * 2)
-      ctx.fill()
-    }
-  }, [scene, cameras])
+  if (!scene) return null
 
   return (
-    <div className="w-full h-full flex items-center justify-center bg-bg">
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={600}
-        className="max-w-full max-h-full rounded"
-        style={{ imageRendering: "pixelated" }}
-      />
+    <div className="relative w-full h-full">
+      <Canvas
+        camera={{ position: view.camPos, fov: 45 }}
+        className="w-full h-full"
+        gl={{ antialias: true, powerPreference: "default" }}
+      >
+        <color attach="background" args={["#070a0e"]} />
+        <fog attach="fog" args={["#070a0e", 30, 90]} />
+
+        <ambientLight intensity={0.35} />
+        <hemisphereLight args={["#5a7aaa", "#0b0e14", 0.5]} />
+        <directionalLight position={[15, 15, 25]} intensity={1.0} />
+        <directionalLight position={[-20, -10, 18]} intensity={0.4} color="#5b8fb9" />
+
+        <CameraReframer center={view.center} camPos={view.camPos} />
+        {/* Hide FOV cones in coverage map — the per-camera floor tiles convey it */}
+        <SceneShell scene={scene} floorOpacity={0.6} showFOV={false} />
+
+        {coverage && coverage.cameras.map((cam) => (
+          <CoverageLayer
+            key={cam.id}
+            camCoverage={cam}
+            color={cameraColors[cam.id] ?? "#00ff88"}
+            bounds={coverage.bounds}
+            resolution={coverage.resolution}
+          />
+        ))}
+
+        <Grid
+          position={[view.center[0], view.center[1], -0.01]}
+          args={[80, 80]}
+          cellColor="#1a2129"
+          sectionColor="#27313e"
+          fadeDistance={80}
+          fadeStrength={1.5}
+          infiniteGrid
+        />
+        <OrbitControls makeDefault target={view.center} maxPolarAngle={Math.PI / 2.05} />
+      </Canvas>
+
+      {/* Overlay: status + legend */}
+      <div className="absolute top-3 left-3 bg-bg/80 border border-border rounded px-3 py-2 text-xs space-y-1 max-w-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-text font-semibold">3D Coverage</span>
+          {loading && <span className="text-dim text-[10px]">computing…</span>}
+        </div>
+        {coverage ? (
+          <>
+            <div className="text-dim">
+              {coverage.coverage_pct.toFixed(1)}% floor coverage
+              {" · "}
+              {coverage.covered_cells} / {coverage.total_cells} cells
+            </div>
+            <div className="space-y-0.5 pt-1 border-t border-border max-h-48 overflow-y-auto">
+              {coverage.cameras.map((cam) => (
+                <div key={cam.id} className="flex items-center gap-1.5 text-[10px]">
+                  <span
+                    className="w-2 h-2 rounded-sm shrink-0"
+                    style={{ background: cameraColors[cam.id] }}
+                  />
+                  <span className="text-text font-mono">{cam.id}</span>
+                  <span className="text-dim">{cam.type}</span>
+                  <span className="text-dim ml-auto">{cam.covered_count} cells</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : cameras.length === 0 ? (
+          <p className="text-dim text-[10px]">
+            No cameras placed yet — click <span className="text-cyan">Optimize Cameras</span> below.
+          </p>
+        ) : (
+          <p className="text-dim text-[10px]">Loading coverage…</p>
+        )}
+      </div>
     </div>
+  )
+}
+
+// ─── Per-camera InstancedMesh of coverage tiles ──────────────────
+
+function CoverageLayer({
+  camCoverage, color, bounds, resolution,
+}: {
+  camCoverage: CameraCoverage3D
+  color: string
+  bounds: { min: [number, number]; max: [number, number] }
+  resolution: number
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+  const count = camCoverage.covered_cells.length
+
+  useEffect(() => {
+    const m = meshRef.current
+    if (!m) return
+    const matrix = new THREE.Matrix4()
+    for (let i = 0; i < count; i++) {
+      const [col, row] = camCoverage.covered_cells[i]
+      const x = bounds.min[0] + (col + 0.5) * resolution
+      const y = bounds.min[1] + (row + 0.5) * resolution
+      // Slight z offset per camera index (using a hash from id) so overlapping tiles z-fight less
+      matrix.makeTranslation(x, y, 0.02)
+      m.setMatrixAt(i, matrix)
+    }
+    m.instanceMatrix.needsUpdate = true
+  }, [camCoverage, bounds, resolution, count])
+
+  if (count === 0) return null
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[undefined, undefined, count]}
+      // Disable raycasting so tiles don't intercept clicks meant for camera nodes
+      raycast={() => null}
+    >
+      <planeGeometry args={[resolution * 1.05, resolution * 1.05]} />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0.18}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </instancedMesh>
   )
 }

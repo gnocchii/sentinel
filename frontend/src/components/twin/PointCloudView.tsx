@@ -2,24 +2,48 @@
 import { useMemo } from "react"
 import { Canvas } from "@react-three/fiber"
 import { OrbitControls } from "@react-three/drei"
-import * as THREE from "three"
 import { useSentinel } from "@/store/sentinel"
 
 export default function PointCloudView() {
-  const { pointCloud } = useSentinel()
+  const { pointCloud, scene } = useSentinel()
+
+  const center = useMemo<[number, number, number]>(() => {
+    if (!scene) return [0, 0, 0]
+    const b = scene.bounds
+    return [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, 0]
+  }, [scene])
+
+  const camPos = useMemo<[number, number, number]>(() => {
+    if (!scene) return [10, -10, 10]
+    const b = scene.bounds
+    const span = Math.max(b.max[0] - b.min[0], b.max[1] - b.min[1])
+    const dist = span * 1.1 + 4
+    return [center[0] + dist * 0.6, center[1] - dist, dist * 0.9]
+  }, [scene, center])
+
+  if (!pointCloud) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-bg text-center p-8">
+        <div className="space-y-2 max-w-md">
+          <p className="text-text text-sm">No point cloud available</p>
+          <p className="text-dim text-xs">
+            Point clouds are generated for scenes with full geometry (the Avery House demo).
+            Polycam scans show their geometry directly in the <span className="text-cyan">Digital Twin</span> tab.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <Canvas camera={{ position: [6, -8, 10], fov: 50 }} className="w-full h-full">
+    <Canvas
+      camera={{ position: camPos, fov: 50 }}
+      className="w-full h-full"
+      gl={{ antialias: true, powerPreference: "default" }}
+    >
       <color attach="background" args={["#0a0c0f"]} />
-      {pointCloud ? (
-        <PointCloud points={pointCloud.points} />
-      ) : (
-        <mesh>
-          <boxGeometry args={[0.1, 0.1, 0.1]} />
-          <meshBasicMaterial color="gray" />
-        </mesh>
-      )}
-      <OrbitControls makeDefault target={[6, 4, 0]} />
+      <PointCloud points={pointCloud.points} />
+      <OrbitControls makeDefault target={center} />
     </Canvas>
   )
 }

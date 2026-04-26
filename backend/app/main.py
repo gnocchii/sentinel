@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.api.routes import scene, cameras, k2, lighting
+from app.api.routes import scene, cameras, k2, lighting, importance
 
 settings = get_settings()
 
@@ -20,6 +20,7 @@ app.include_router(scene.router)
 app.include_router(cameras.router)
 app.include_router(k2.router)
 app.include_router(lighting.router)
+app.include_router(importance.router)
 
 
 @app.get("/health")

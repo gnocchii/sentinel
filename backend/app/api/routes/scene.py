@@ -1,6 +1,9 @@
 import json
+import tempfile
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, HTTPException, UploadFile
+
+from app.services.usda_parser import parse_usdz, write_scene
 
 router = APIRouter(prefix="/scene", tags=["scene"])
 
@@ -12,6 +15,32 @@ def load_scene(scene_id: str) -> dict:
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Scene '{scene_id}' not found")
     return json.loads(path.read_text())
+
+
+@router.post("/upload-usdz")
+async def upload_usdz(file: UploadFile = File(...), scene_id: str = "polycam_scan"):
+    """Upload a Polycam USDZ → parse → write scene JSON → return summary."""
+    if not file.filename.lower().endswith(".usdz"):
+        raise HTTPException(status_code=400, detail="expected .usdz file")
+
+    with tempfile.NamedTemporaryFile(suffix=".usdz", delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        scene = parse_usdz(tmp_path, scene_id=scene_id)
+        write_scene(scene, SCENES_DIR)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    return {
+        "scene_id": scene_id,
+        "rooms": len(scene["rooms"]),
+        "walls": len(scene["walls"]),
+        "doors": len(scene["entry_points"]),
+        "obstructions": len(scene["obstructions"]),
+        "bounds": scene["bounds"],
+    }
 
 
 @router.get("/{scene_id}")

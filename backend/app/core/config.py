@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     k2_model: str = "claude-opus-4-7"
 
+    k2_think_api_key: str = "IFM-mLIBafSfvEwDjesd"
+    k2_think_base_url: str = "https://api.k2think.ai/v1"
+    k2_think_model: str = "MBZUAI-IFM/K2-Think-v2"
+
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     cors_origins: str = "http://localhost:3000"
