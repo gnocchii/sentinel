@@ -39,6 +39,11 @@ interface SentinelState {
   setBudget: (b: number) => void
   cameras: Camera[]
   setCameras: (c: Camera[]) => void
+  // The largest camera set we've ever seen (from any optimize). Budget slider
+  // slices from this so dragging the slider can synthesize add/remove without
+  // a backend round-trip.
+  cameraPool: Camera[]
+  setCameraPool: (c: Camera[]) => void
   coveragePct: number
   setCoveragePct: (p: number) => void
 
@@ -86,7 +91,13 @@ interface SentinelState {
 
 export const useSentinel = create<SentinelState>((set) => ({
   scene: null,
-  setScene: (scene) => set({ scene, cameras: scene.cameras, coveragePct: scene.analysis.coverage_pct }),
+  setScene: (scene) => set((s) => ({
+    scene,
+    cameras: scene.cameras,
+    // Seed the pool with the scene's cameras if it's larger than what we have.
+    cameraPool: scene.cameras.length > s.cameraPool.length ? scene.cameras : s.cameraPool,
+    coveragePct: scene.analysis.coverage_pct,
+  })),
   setSceneAnalysis: (partial) =>
     set((s) =>
       s.scene
@@ -108,13 +119,20 @@ export const useSentinel = create<SentinelState>((set) => ({
   selectedCameraId: null,
   selectCamera: (selectedCameraId) => set({ selectedCameraId }),
 
-  activeTab: "importance-map",
+  activeTab: "digital-twin",
   setActiveTab: (activeTab) => set({ activeTab }),
 
   budget: 2500,
   setBudget: (budget) => set({ budget }),
   cameras: [],
-  setCameras: (cameras) => set({ cameras }),
+  // Always grow the pool — never shrink it just because the active list shrank.
+  // That way the slider can re-add cameras the next time the budget goes up.
+  setCameras: (cameras) => set((s) => ({
+    cameras,
+    cameraPool: cameras.length > s.cameraPool.length ? cameras : s.cameraPool,
+  })),
+  cameraPool: [],
+  setCameraPool: (cameraPool) => set({ cameraPool }),
   coveragePct: 0,
   setCoveragePct: (coveragePct) => set({ coveragePct }),
 

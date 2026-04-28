@@ -1,8 +1,7 @@
 "use client"
 /**
  * FbxPOV — render an uploaded FBX through a security camera's POV.
- * Used by Camera Feeds when an FBX has been uploaded. Calculations still
- * come from the parsed USDZ scene; this is purely a visualization swap.
+ * Used by Camera Feeds when an FBX has been uploaded.
  */
 
 import { Suspense, useEffect } from "react"
@@ -17,7 +16,7 @@ function POVCameraSetup({ cam }: { cam: Camera }) {
     camera.up.set(0, 0, 1)
     camera.position.set(cam.position[0], cam.position[1], cam.position[2])
     camera.lookAt(cam.target[0], cam.target[1], cam.target[2])
-    camera.fov  = cam.fov_v ?? 70   // Three.js camera.fov is VERTICAL — match the placed cam
+    camera.fov  = cam.fov_v ?? 70
     camera.near = 0.05
     camera.far  = 200
     camera.updateProjectionMatrix()
@@ -46,7 +45,6 @@ interface Props {
   url: string
   scale?: number
   captureRef?: CaptureRef
-  /** Hide the security-cam vignette overlay. Used for fullscreen / featured views. */
   noVignette?: boolean
 }
 

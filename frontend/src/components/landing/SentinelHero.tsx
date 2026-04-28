@@ -41,9 +41,14 @@ export default function SentinelHero() {
   const router = useRouter()
   const { scene, sceneId, feedsFbxUrl, uploading, handleUpload, handleUploadFbx } = useSentinelUploads()
   const routedRef = useRef(false)
+  // Snapshot whether both files were already in the store at mount. If yes,
+  // the user navigated back to the landing intentionally (e.g., favicon click)
+  // and we should NOT auto-bounce them to /twin again.
+  const arrivedReadyRef = useRef(Boolean(sceneId && feedsFbxUrl))
 
-  // Once both files are in, jump into the dashboard
+  // Auto-route only after a *fresh* upload completes both files in this session
   useEffect(() => {
+    if (arrivedReadyRef.current) return
     if (sceneId && feedsFbxUrl && !routedRef.current) {
       routedRef.current = true
       router.push("/twin")

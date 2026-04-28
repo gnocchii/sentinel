@@ -7,7 +7,6 @@ import SceneViewer from "@/components/twin/SceneViewer"
 import SceneDock from "@/components/twin/SceneDock"
 import TerminalFrame from "@/components/ui/TerminalFrame"
 import BentoCard from "@/components/ui/BentoCard"
-import Grainient from "@/components/ui/Grainient"
 import TopProgress from "@/components/ui/TopProgress"
 
 export default function TwinDashboard() {
@@ -16,28 +15,17 @@ export default function TwinDashboard() {
   return (
     <div className="flex flex-col h-screen w-screen bg-bg overflow-hidden relative">
       <TopProgress />
-      <div className="pointer-events-none fixed inset-0 -z-10">
-        <Grainient
-          color1="#1e2a52"
-          color2="#89b4fa"
-          color3="#3b5998"
-          timeSpeed={0.18}
-          warpStrength={1.0}
-          warpFrequency={4.0}
-          warpAmplitude={60.0}
-          blendSoftness={0.12}
-          rotationAmount={420.0}
-          noiseScale={1.6}
-          grainAmount={0.05}
-          contrast={1.0}
-          saturation={0.85}
-          zoom={0.95}
-        />
-        <div
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(180deg, rgba(17,17,27,0.55) 0%, rgba(11,11,18,0.7) 100%)" }}
-        />
-      </div>
+      {/* Static gradient bg — Grainient was eating a WebGL context, which combined
+          with the FbxPOV thumbnails was tripping the browser's per-page WebGL
+          context cap and blanking out the oldest live-feed tiles. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(137,180,250,0.10), transparent 60%), radial-gradient(ellipse 60% 50% at 50% 110%, rgba(180,140,220,0.07), transparent 60%), linear-gradient(180deg, #0a0c12 0%, #08090f 100%)",
+        }}
+      />
 
       <TopBar />
 

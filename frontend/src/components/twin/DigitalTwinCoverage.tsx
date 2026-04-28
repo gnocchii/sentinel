@@ -16,6 +16,10 @@ import { fetchCoverage3D } from "@/lib/api"
 import { SceneShell, CameraReframer, sceneView } from "./SceneShell"
 import type { Coverage3DPayload, CameraCoverage3D } from "@/lib/types"
 
+// Cameras intentionally hidden from the digital-twin overlay (the mesh shows
+// duplicate FOV/coverage for these in the same hallway as another camera).
+const TWIN_HIDDEN_CAMERA_IDS = new Set(["CAM-07"])
+
 export default function DigitalTwinCoverage() {
   const { scene, cameras, sceneId } = useSentinel()
   const [coverage, setCoverage] = useState<Coverage3DPayload | null>(null)
@@ -24,28 +28,35 @@ export default function DigitalTwinCoverage() {
   const [showFOV, setShowFOV] = useState(true)
   const view = useMemo(() => sceneView(scene), [scene])
 
+  // Filter cameras for the twin view so CAM-07 (and any future hidden ids)
+  // don't render their FOV cone, coverage tiles, or legend entry.
+  const visibleCameras = useMemo(
+    () => cameras.filter((c) => !TWIN_HIDDEN_CAMERA_IDS.has(c.id)),
+    [cameras],
+  )
+
   useEffect(() => {
-    if (!sceneId || !cameras || cameras.length === 0) {
+    if (!sceneId || !visibleCameras || visibleCameras.length === 0) {
       setCoverage(null)
       return
     }
     let cancelled = false
     setLoading(true)
-    fetchCoverage3D(sceneId, cameras, 0.25)
+    fetchCoverage3D(sceneId, visibleCameras, 0.25)
       .then((c) => { if (!cancelled) setCoverage(c) })
       .catch((e) => console.error("coverage fetch failed", e))
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [sceneId, cameras])
+  }, [sceneId, visibleCameras])
 
   const cameraColors = useMemo(() => {
     const out: Record<string, string> = {}
-    cameras.forEach((c, i) => {
-      const hue = (i * 360) / Math.max(1, cameras.length)
+    visibleCameras.forEach((c, i) => {
+      const hue = (i * 360) / Math.max(1, visibleCameras.length)
       out[c.id] = `hsl(${hue}, 80%, 60%)`
     })
     return out
-  }, [cameras])
+  }, [visibleCameras])
 
   if (!scene) {
     return (
@@ -73,7 +84,12 @@ export default function DigitalTwinCoverage() {
 
         <CameraReframer center={view.center} camPos={view.camPos} />
 
-        <SceneShell scene={scene} floorOpacity={0.7} showFOV={showFOV} />
+        <SceneShell
+          scene={scene}
+          floorOpacity={0.7}
+          showFOV={showFOV}
+          hiddenCameraIds={TWIN_HIDDEN_CAMERA_IDS}
+        />
 
         {showCoverage && coverage && coverage.cameras.map((cam) => (
           <CoverageLayer

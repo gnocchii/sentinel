@@ -5,6 +5,10 @@ import { optimizeImportance, recomputeImportance, streamImportanceReasoning } fr
 
 const MIN = 500
 const MAX = 25000
+// Hardcoded budget → camera count curve. Anchored so the default $2500 lands
+// around 4 cameras and $25k pushes to 12. Slider updates camera count live.
+const MIN_CAMS = 1
+const MAX_CAMS = 12
 
 function budgetToLog(v: number) {
   return (Math.log(v) - Math.log(MIN)) / (Math.log(MAX) - Math.log(MIN))
@@ -12,6 +16,12 @@ function budgetToLog(v: number) {
 
 function logToBudget(t: number) {
   return Math.round(Math.exp(t * (Math.log(MAX) - Math.log(MIN)) + Math.log(MIN)) / 50) * 50
+}
+
+function budgetToCameraCount(budget: number, poolSize: number) {
+  const t = budgetToLog(Math.max(MIN, Math.min(MAX, budget)))
+  const target = Math.round(MIN_CAMS + t * (MAX_CAMS - MIN_CAMS))
+  return Math.max(1, Math.min(poolSize, target))
 }
 
 export default function BudgetSlider() {
@@ -24,6 +34,7 @@ export default function BudgetSlider() {
     setImportance,
     appendK2Thinking, clearK2Text, setK2Streaming,
     selectCamera,
+    cameraPool,
   } = useSentinel()
 
   const slideStartBudget = useRef<number | null>(null)
@@ -31,7 +42,30 @@ export default function BudgetSlider() {
 
   const handleSlide = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (slideStartBudget.current === null) slideStartBudget.current = budget
-    setBudget(logToBudget(Number(e.target.value)))
+    const nextBudget = logToBudget(Number(e.target.value))
+    setBudget(nextBudget)
+
+    // Live camera add/remove: slice the cameraPool to a budget-derived count.
+    // This is purely client-side — no backend round-trip — so the slider feels
+    // instantaneous. Cameras carry their full position/target/fov so the
+    // FbxPOV thumbnails + main display update immediately, and the digital
+    // twin (which reads from `cameras`) re-renders to match.
+    const pool = useSentinel.getState().cameraPool
+    if (pool.length > 0) {
+      const n = budgetToCameraCount(nextBudget, pool.length)
+      const cur = useSentinel.getState().cameras
+      if (cur.length !== n) {
+        const sel = useSentinel.getState().selectedCameraId
+        const next = pool.slice(0, n)
+        // If the selected camera just got pruned, drop the selection so the
+        // detail view doesn't try to render a phantom.
+        if (sel && !next.some((c) => c.id === sel)) selectCamera(null)
+        setCameras(next)
+        // Rough coverage estimate scales with camera count for visual feedback
+        setCoveragePct(Math.min(100, (n / pool.length) * 100))
+      }
+    }
+
     if (slideTimer.current) window.clearTimeout(slideTimer.current)
     slideTimer.current = window.setTimeout(() => {
       const start = slideStartBudget.current
@@ -39,13 +73,14 @@ export default function BudgetSlider() {
       slideStartBudget.current = null
       if (start === null || start === end) return
       const delta = end - start
+      const n = useSentinel.getState().cameras.length
       pushActivity({
         severity: "info",
         title: "Budget adjusted",
-        body: `${start < end ? "↑" : "↓"} $${start.toLocaleString()} → $${end.toLocaleString()} (${delta > 0 ? "+" : ""}$${delta.toLocaleString()})`,
+        body: `${start < end ? "↑" : "↓"} $${start.toLocaleString()} → $${end.toLocaleString()} (${delta > 0 ? "+" : ""}$${delta.toLocaleString()}) · ${n} cam${n === 1 ? "" : "s"}`,
       })
     }, 450)
-  }, [setBudget, budget, pushActivity])
+  }, [setBudget, budget, setCameras, setCoveragePct, selectCamera, pushActivity])
 
   const handleOptimize = useCallback(async () => {
     if (!sceneId || optimizing) return

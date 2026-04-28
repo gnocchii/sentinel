@@ -87,10 +87,7 @@ export default function ThreatPathView() {
       {/* Index panel */}
       <div className="absolute top-4 left-4 w-[260px] rounded-xl border border-white/[0.06] bg-black/40 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.45)]">
         <div className="px-3.5 pt-3 pb-2.5 flex items-center justify-between border-b border-white/[0.04]">
-          <div className="flex items-center gap-2">
-            <span className="w-1 h-3.5 rounded-sm bg-red/70" />
-            <span className="text-[10px] uppercase tracking-[0.18em] text-text/85">Threat Paths</span>
-          </div>
+          <span className="text-[10px] uppercase tracking-[0.18em] text-text/85">Threat Paths</span>
           {loading ? (
             <span className="text-[9px] font-mono text-cyan/80 animate-pulse">computing</span>
           ) : (
@@ -99,17 +96,6 @@ export default function ThreatPathView() {
         </div>
 
         <div className="px-3.5 py-3 space-y-3">
-          <div className="flex items-center gap-4 text-[10px] font-mono">
-            <span className="flex items-center gap-1.5 text-amber">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber shadow-[0_0_6px_rgba(251,191,135,0.7)]" />
-              burglar
-            </span>
-            <span className="flex items-center gap-1.5 text-red">
-              <span className="w-1.5 h-1.5 rounded-full bg-red shadow-[0_0_6px_rgba(243,139,168,0.7)]" />
-              pro
-            </span>
-          </div>
-
           <p className="text-[10px] text-dim/70 leading-snug">
             Paths route around camera coverage. Click an entry to filter.
           </p>

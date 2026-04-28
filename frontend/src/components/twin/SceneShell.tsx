@@ -77,6 +77,9 @@ interface SceneShellProps {
   showEntryPoints?: boolean
   showWalls?: boolean
   floorOpacity?: number
+  /** Camera ids to exclude from camera/FOV rendering (e.g., the digital-twin
+   *  view hides CAM-07 because it duplicates another camera in the same hallway). */
+  hiddenCameraIds?: ReadonlySet<string>
 }
 
 export function SceneShell({
@@ -86,8 +89,12 @@ export function SceneShell({
   showEntryPoints = true,
   showWalls = true,
   floorOpacity = 0.85,
+  hiddenCameraIds,
 }: SceneShellProps) {
   const { cameras, selectedCameraId } = useSentinel()
+  const visibleCameras = hiddenCameraIds
+    ? cameras.filter((c) => !hiddenCameraIds.has(c.id))
+    : cameras
   const b = scene.bounds
   const cx = (b.min[0] + b.max[0]) / 2
   const cy = (b.min[1] + b.max[1]) / 2
@@ -121,7 +128,7 @@ export function SceneShell({
       ))}
 
       {/* Cameras + FOV */}
-      {showCameras && cameras.map((cam) => (
+      {showCameras && visibleCameras.map((cam) => (
         <group key={cam.id}>
           <CameraNode camera={cam} selected={cam.id === selectedCameraId} />
           {showFOV && <FOVCone camera={cam} selected={cam.id === selectedCameraId} />}
