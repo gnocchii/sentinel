@@ -330,19 +330,22 @@ class CanvAscii {
   }
 
   async init() {
-    try {
-      await document.fonts.load('600 200px "IBM Plex Mono"');
-      await document.fonts.load('500 12px "IBM Plex Mono"');
-    } catch (e) {}
+    // Wait for any in-flight web fonts so measureText returns stable widths,
+    // but no longer block on a specific font that may not be available.
     await document.fonts.ready;
     this.setMesh();
     this.setRenderer();
   }
 
   setMesh() {
+    // System mono stack — no network race. The hardcoded "IBM Plex Mono"
+    // upstream relied on an inline @import that could race measureText in
+    // production, producing a wrongly-wide canvas → plane projection
+    // exceeded the frustum → right-side cutoff. System fonts always
+    // resolve synchronously.
     this.textCanvas = new CanvasTxt(this.textString, {
       fontSize: this.textFontSize,
-      fontFamily: 'IBM Plex Mono',
+      fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace',
       color: this.textColor
     });
     this.textCanvas.resize();

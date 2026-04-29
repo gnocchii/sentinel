@@ -375,17 +375,18 @@ body {
   animation: sh-particle-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 1.1s both;
 }
 .sh-hero-ascii-wrap {
-  position: relative;
-  /* Sized smaller than the upstream demo so the bg ascii reads around
-     the wordmark. Aspect ~3:1 keeps the rendered plane filled (avoids
-     wave-shader edge artifacts). */
-  /* Plane is ~40 world units wide; we need plenty of frustum width margin
-     so wave displacement + rotation can't push letters off-frame. Going
-     full viewport width and taller fixes the right-edge cutoff. */
+  /* Pinned absolutely so flex column layout can't squish the wrap; the
+     ASCIIText component sizes its 3D renderer + plane projection from
+     getBoundingClientRect of this element, so any flex shrinking would
+     starve the frustum width and cut letters off. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-58%); /* nudge up a touch so panel below has room */
   width: 100vw;
   height: clamp(220px, 32vh, 460px);
   pointer-events: auto;
-  /* Plain dark drop — subdued, no chromatic bleed. */
   filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.7));
   animation: sh-particle-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 1.1s both;
 }
@@ -463,11 +464,6 @@ body {
   pointer-events: auto;
   position: relative;
   width: clamp(320px, 34vw, 480px);
-  /* Pull up into the dead zone below the rendered ASCII letters (the
-     title's wrap is taller than the letters themselves, so reducing the
-     flex gap alone leaves visible empty space). Tune this value if the
-     panel needs to sit higher or lower relative to "sentinel". */
-  margin-top: clamp(-120px, -8vh, -40px);
   border-radius: 22px;
   overflow: hidden;
   isolation: isolate;
