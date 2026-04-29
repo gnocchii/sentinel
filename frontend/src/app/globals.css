@@ -375,15 +375,7 @@ body {
   animation: sh-particle-rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 1.1s both;
 }
 .sh-hero-ascii-wrap {
-  /* Pinned absolutely so flex column layout can't squish the wrap; the
-     ASCIIText component sizes its 3D renderer + plane projection from
-     getBoundingClientRect of this element, so any flex shrinking would
-     starve the frustum width and cut letters off. */
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  transform: translateY(-58%); /* nudge up a touch so panel below has room */
+  position: relative;
   width: 100vw;
   height: clamp(220px, 32vh, 460px);
   pointer-events: auto;
