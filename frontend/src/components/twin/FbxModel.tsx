@@ -37,24 +37,6 @@ function FbxCeilingClip() {
   return null
 }
 
-// Artificial floor — flat dark plane just below scene.bounds.min.z. Gives every
-// camera POV a consistent floor to look at and hides under-floor noise.
-function ArtificialFloor() {
-  const sceneBounds = useSentinel((s) => s.scene?.bounds)
-  if (!sceneBounds) return null
-  const cx = (sceneBounds.min[0] + sceneBounds.max[0]) / 2
-  const cy = (sceneBounds.min[1] + sceneBounds.max[1]) / 2
-  // 1.4× the scene XY span so the floor extends past the building in the POV
-  const sx = (sceneBounds.max[0] - sceneBounds.min[0]) * 1.4
-  const sy = (sceneBounds.max[1] - sceneBounds.min[1]) * 1.4
-  return (
-    <mesh position={[cx, cy, sceneBounds.min[2] - 0.02]}>
-      <planeGeometry args={[Math.max(sx, 1), Math.max(sy, 1)]} />
-      <meshBasicMaterial color="#1a2129" side={THREE.DoubleSide} toneMapped={false} />
-    </mesh>
-  )
-}
-
 interface Props {
   url: string
   scale?: number       // multiplier on top of the auto-fit scale
@@ -182,7 +164,6 @@ export default function FbxModel({ url, scale = 1, yUpToZUp = true, autoFit = tr
   return (
     <>
       <FbxCeilingClip />
-      <ArtificialFloor />
       <primitive object={cloned} />
     </>
   )

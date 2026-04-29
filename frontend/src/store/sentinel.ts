@@ -119,7 +119,7 @@ export const useSentinel = create<SentinelState>((set) => ({
   selectedCameraId: null,
   selectCamera: (selectedCameraId) => set({ selectedCameraId }),
 
-  activeTab: "digital-twin",
+  activeTab: "point-cloud",
   setActiveTab: (activeTab) => set({ activeTab }),
 
   budget: 2500,
